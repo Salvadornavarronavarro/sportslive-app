@@ -968,18 +968,18 @@ def list_events(filters: dict = None):
                 base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
                 params.extend([term, term, term, term, term])
 
-    query = f"""
-    SELECT e.* FROM events e
-    WHERE {base_where}
-    ORDER BY 
-        CASE e.status 
-            WHEN 'LIVE' THEN 1 
-            WHEN 'UPCOMING' THEN 2 
-            WHEN 'REPLAY' THEN 3 
-        END ASC,
-        e.date_time DESC
-    """
-    cursor.execute(query, params)
+                    query = f"""
+            SELECT e.* FROM events e
+            WHERE {base_where}
+            ORDER BY 
+                CASE e.status 
+                    WHEN 'LIVE' THEN 1 
+                    WHEN 'UPCOMING' THEN 2 
+                    WHEN 'REPLAY' THEN 3 
+                END ASC,
+                e.date_time DESC
+            """
+            cursor.execute(query, params)
 
         rows = [dict(row) for row in cursor.fetchall()]
         return rows
