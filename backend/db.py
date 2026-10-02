@@ -963,23 +963,24 @@ def list_events(filters: dict = None):
                 else:
                     base_where += " AND (e.ccaa_id = ? OR LOWER(e.region) = ? OR LOWER(e.ccaa_name) = ? OR e.province_id = ?)"
                     params.extend([clean_ccaa, clean_ccaa, clean_ccaa, clean_ccaa])
-    if filters.get("search"):
-                term = f"%{filters['search'].strip()}%"
-                base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
-                params.extend([term, term, term, term, term])
+if filters.get("search"):
+        term = f"%{filters['search'].strip()}%"
+        base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
+        params.extend([term, term, term, term, term])
+
     try:
-                    query = f"""
-            SELECT e.* FROM events e
-            WHERE {base_where}
-            ORDER BY 
-                CASE e.status 
-                    WHEN 'LIVE' THEN 1 
-                    WHEN 'UPCOMING' THEN 2 
-                    WHEN 'REPLAY' THEN 3 
-                END ASC,
-                e.date_time DESC
-            """
-            cursor.execute(query, params)
+        query = f"""
+        SELECT e.* FROM events e
+        WHERE {base_where}
+        ORDER BY
+            CASE e.status
+                WHEN 'LIVE' THEN 1
+                WHEN 'UPCOMING' THEN 2
+                WHEN 'REPLAY' THEN 3
+            END ASC,
+            e.date_time DESC
+        """
+        cursor.execute(query, params)
 
         rows = [dict(row) for row in cursor.fetchall()]
         return rows
