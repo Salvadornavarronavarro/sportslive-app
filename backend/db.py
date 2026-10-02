@@ -317,11 +317,10 @@ def init_db():
             """)
         conn.commit()
 
-        # Unificación y migración global: sustituir 'Fútbol Base' por 'Fútbol' en events y clubs
+  # Migraciones iniciales protegidas ante base de datos recién creada
+    try:
         cursor.execute("UPDATE events SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
         cursor.execute("UPDATE clubs SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
-
-        # Supresión de la palabra 'Base' y 'Cantera' en sport_name de todos los deportes
         cursor.execute("UPDATE events SET sport_name = 'Baloncesto' WHERE sport_name IN ('Baloncesto Base', 'Baloncesto Cantera');")
         cursor.execute("UPDATE clubs SET sport_name = 'Baloncesto' WHERE sport_name IN ('Baloncesto Base', 'Baloncesto Cantera');")
         cursor.execute("UPDATE events SET sport_name = 'Fútbol Sala' WHERE sport_name IN ('Fútbol Sala Base', 'Fútbol Sala Cantera');")
@@ -330,33 +329,10 @@ def init_db():
         cursor.execute("UPDATE clubs SET sport_name = 'Balonmano' WHERE sport_name IN ('Balonmano Base', 'Balonmano Cantera');")
         cursor.execute("UPDATE events SET sport_name = TRIM(REPLACE(REPLACE(sport_name, ' Base', ''), ' Cantera', '')) WHERE sport_name LIKE '% Base' OR sport_name LIKE '% Cantera';")
         cursor.execute("UPDATE clubs SET sport_name = TRIM(REPLACE(REPLACE(sport_name, ' Base', ''), ' Cantera', '')) WHERE sport_name LIKE '% Base' OR sport_name LIKE '% Cantera';")
-
-        # Eliminar marcadores falsos y resultados en vídeos diferidos y catálogo (status != 'LIVE')
         cursor.execute("UPDATE events SET home_score = NULL, away_score = NULL WHERE status != 'LIVE';")
-        cursor.execute("UPDATE events SET away_team = '' WHERE away_team LIKE 'Rival de%' OR away_team = 'Cantera Oficial' OR away_team = 'Equipo';")
-
-        # Asegurar categoría y disciplina correcta (Boxeo) para Real Federación Española de Boxeo RFEBox
-        cursor.execute("""
-        UPDATE events 
-        SET sport_id = 'contacto', 
-            sport_name = 'Boxeo', 
-            sport_icon = '🥊', 
-            category_name = 'Nacional', 
-            location_venue = 'España',
-            province_name = 'España',
-            ccaa_name = 'Toda España'
-        WHERE club_id = 'real-federacion-espanola-de-boxeo-rfebox' 
-           OR club_name LIKE '%Federación Española de Boxeo%'
-           OR title LIKE '%BOXAM%';
-        """)
-        cursor.execute("""
-        UPDATE events 
-        SET sport_id = 'contacto', 
-            sport_name = 'MMA y Boxeo', 
-            sport_icon = '🥊' 
-        WHERE club_id = 'climent-club' AND (sport_name = 'Fútbol' OR sport_id = 'futbol');
-        """)
-        conn.commit()
+        cursor.execute("UPDATE events SET away_team = '' WHERE away_team LIKE 'Rival de%' OR away_team = 'Cantera Oficial' OR away_team = '';")
+    except Exception:
+        pass$
 
         # Tabla oficial de clubes y canales
         cursor.execute("""
