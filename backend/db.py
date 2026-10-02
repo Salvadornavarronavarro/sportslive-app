@@ -309,13 +309,8 @@ def init_db():
                 ''
             );
             """)
-        else:
-            cursor.execute("""
-            UPDATE events 
-            SET region = 'Comunidad Valenciana', ccaa_id = 'comunidad-valenciana', ccaa_name = 'Comunidad Valenciana', province_id = 'alicante', province_name = 'Alicante'
-            WHERE id = 'evt-elche-villarreal-juv';
-            """)
-        conn.commit()
+            conn.commit()
+      
 
   
         # Tabla oficial de clubes y canales
