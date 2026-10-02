@@ -317,7 +317,7 @@ def init_db():
             """)
         conn.commit()
 
-  # Migraciones iniciales protegidas ante base de datos recién creada
+  # Migraciones iniciales
     try:
         cursor.execute("UPDATE events SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
         cursor.execute("UPDATE clubs SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
@@ -332,8 +332,7 @@ def init_db():
         cursor.execute("UPDATE events SET home_score = NULL, away_score = NULL WHERE status != 'LIVE';")
         cursor.execute("UPDATE events SET away_team = '' WHERE away_team LIKE 'Rival de%' OR away_team = 'Cantera Oficial' OR away_team = '';")
     except Exception:
-        pass$
-
+        pass
         # Tabla oficial de clubes y canales
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS clubs (
