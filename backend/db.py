@@ -980,7 +980,6 @@ def list_events(filters: dict = None):
         e.date_time DESC
     """
     cursor.execute(query, params)
-            cursor.execute(query, params)
 
         rows = [dict(row) for row in cursor.fetchall()]
         return rows
