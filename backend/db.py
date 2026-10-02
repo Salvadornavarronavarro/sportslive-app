@@ -903,7 +903,7 @@ def list_events(filters: dict = None):
     conn = get_db()
     try:
         cursor = conn.cursor()
-        
+
         # Determinar si se aplica la restricción de portada (Directos prioritarios + últimos 5 vídeos históricos por club)
         is_portada = False
         limit_per_club = 5
@@ -919,10 +919,10 @@ def list_events(filters: dict = None):
                 is_portada = True
 
         base_where = """
-            e.report_count < 5 
-              AND e.title NOT LIKE '%Caso Borde%' 
-              AND (e.home_team IS NULL OR e.home_team NOT LIKE '%Test Local%')
-              AND (e.club_id IS NOT NULL OR e.club_name IS NOT NULL)
+            e.report_count < 5
+            AND e.title NOT LIKE '%Caso Borde%'
+            AND (e.home_team IS NULL OR e.home_team NOT LIKE '%Test Local%')
+            AND (e.club_id IS NOT NULL OR e.club_name IS NOT NULL)
         """
         params = []
 
@@ -933,28 +933,42 @@ def list_events(filters: dict = None):
             if filters.get("sport_id"):
                 sp = filters["sport_id"].strip().lower()
                 if sp in ("contacto", "boxeo_contacto", "boxeo", "mma", "kickboxing", "muay_thai"):
-                    base_where += " AND (e.sport_id IN ('contacto', 'boxeo_contacto') OR e.sport_name LIKE '%Boxeo%' OR e.sport_name LIKE '%contacto%')"
-                    if sp in ("boxeo", "mma", "kickboxing", "muay_thai"):
-                        base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.title) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ?)"
-                        params.extend([sp, f"%{sp}%", f"%{sp}%", f"%{sp}%", f"%{sp}%"])
+                    base_where += " AND (e.sport_id IN ('contacto', 'boxeo_contacto') OR e.sport_name LIKE '%Boxeo%' OR e.sport_name LIKE '%MMA%' OR e.sport_name LIKE '%Kickboxing%' OR e.sport_name LIKE '%Muay Thai%')"
+                elif sp in ("voleibol", "voley", "volleyball"):
+                    base_where += " AND (e.sport_id IN ('voleibol', 'voley', 'volleyball') OR e.sport_name LIKE '%Voleibol%' OR e.sport_name LIKE '%Voley%')"
+                elif sp in ("balonmano", "handball"):
+                    base_where += " AND (e.sport_id IN ('balonmano', 'handball') OR e.sport_name LIKE '%Balonmano%' OR e.sport_name LIKE '%Handball%')"
                 else:
                     base_where += " AND e.sport_id = ?"
-                    params.append(sp)
-            if filters.get("category_id") and filters.get("category_id") != "all":
-                cat = filters["category_id"].strip().lower()
-                base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ?)"
-                params.extend([cat, f"%{cat}%", f"%{cat}%", f"%{cat}%"])
-            discipline = (filters.get("discipline") or filters.get("modality") or "").strip().lower()
-            if discipline and discipline != "all":
-                base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ? OR LOWER(e.title) LIKE ?)"
-                params.extend([discipline, f"%{discipline}%", f"%{discipline}%", f"%{discipline}%", f"%{discipline}%"])
-            if filters.get("province_id") and filters["province_id"] != "all":
-                base_where += " AND e.province_id = ?"
+                    params.append(filters["sport_id"].strip().lower())
+            if filters.get("club_id"):
+                base_where += " AND (e.club_id = ? OR e.away_club_id = ?)"
+                params.extend([filters["club_id"], filters["club_id"]])
+            if filters.get("date"):
+                base_where += " AND date(e.date_time) = ?"
+                params.append(filters["date"].strip())
+            if filters.get("date_from"):
+                base_where += " AND date(e.date_time) >= ?"
+                params.append(filters["date_from"].strip())
+            if filters.get("date_to"):
+                base_where += " AND date(e.date_time) <= ?"
+                params.append(filters["date_to"].strip())
+            if filters.get("category"):
+                base_where += " AND e.category = ?"
+                params.append(filters["category"].strip())
+            if filters.get("gender"):
+                base_where += " AND e.gender = ?"
+                params.append(filters["gender"].strip().upper())
+            if filters.get("competition"):
+                base_where += " AND e.competition = ?"
+                params.append(filters["competition"].strip())
+            if filters.get("province_id"):
+                base_where += " AND LOWER(e.province_id) = ?"
                 params.append(filters["province_id"].strip().lower())
             ccaa_filter = filters.get("ccaa_id") or filters.get("region")
             if ccaa_filter and ccaa_filter != "all":
                 clean_ccaa = ccaa_filter.strip().lower()
-                if clean_ccaa in ("comunidad-valenciana", "comunidad valenciana", "comunitat valenciana", "c. valenciana", "c valenciana", "valencia", "alicante", "castellon"):
+                if clean_ccaa in ("comunidad-valenciana", "comunidad valenciana", "comunitat valenciana", "c. valenciana", "c valenciana", "valencia"):
                     base_where += " AND (e.ccaa_id = 'comunidad-valenciana' OR e.region LIKE '%valencian%' OR e.province_id IN ('valencia', 'alicante', 'castellon'))"
                 elif clean_ccaa in ("madrid", "comunidad de madrid", "c. madrid", "c madrid"):
                     base_where += " AND (e.ccaa_id = 'madrid' OR e.region LIKE '%madrid%' OR e.province_id = 'madrid')"
@@ -963,12 +977,11 @@ def list_events(filters: dict = None):
                 else:
                     base_where += " AND (e.ccaa_id = ? OR LOWER(e.region) = ? OR LOWER(e.ccaa_name) = ? OR e.province_id = ?)"
                     params.extend([clean_ccaa, clean_ccaa, clean_ccaa, clean_ccaa])
-if filters.get("search"):
-        term = f"%{filters['search'].strip()}%"
-        base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
-        params.extend([term, term, term, term, term])
+            if filters.get("search"):
+                term = f"%{filters['search'].strip()}%"
+                base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
+                params.extend([term, term, term, term, term])
 
-    try:
         query = f"""
         SELECT e.* FROM events e
         WHERE {base_where}
@@ -985,6 +998,7 @@ if filters.get("search"):
         rows = [dict(row) for row in cursor.fetchall()]
         return rows
     finally:
+        conn.close()
         conn.close()
 
 def get_event_by_id(event_id: str):
