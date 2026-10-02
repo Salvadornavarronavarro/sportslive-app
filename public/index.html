@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SportsLive | El Deporte Base y Amateur en Vivo</title>
+  <meta name="description" content="Plataforma centralizada y agregador inteligente de retransmisiones en directo y diferido de deporte base, competiciones federadas y clubes locales en España.">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    /* Estilos para picker de provincias en modal */
+    .geo-picker-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-align: left;
+      transition: var(--transition-standard);
+      width: 100%;
+    }
+    .geo-picker-btn:hover, .geo-picker-btn.active {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+  </style>
+  <script>
+    // Evaluación rigurosa del estado de autenticación
+    function getSportsLiveUser() {
+      let u = null;
+      try {
+        if (typeof state !== 'undefined' && state && state.currentUser) {
+          u = state.currentUser;
+        } else {
+          u = JSON.parse(localStorage.getItem('sportslive_current_user') || 'null');
+        }
+      } catch (_) {
+        u = null;
+      }
+      return u;
+    }
+
+    function isSportsLiveAuthenticated() {
+      const u = getSportsLiveUser();
+      return !!(u && (u.id || u.username) && u.role && u.role !== 'guest');
+    }
+
+    // Disparador directo inmediato para el botón de Favoritos
+    function handleFavoritesClick(event) {
+      if (event) {
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        if (typeof event.stopPropagation === 'function') event.stopPropagation();
+      }
+
+      if (isSportsLiveAuthenticated()) {
+        // Usuario registrado o Administrador: NUNCA modal de captación, SIEMPRE modal de favoritos
+        if (typeof openFavoritesModal === 'function') {
+          openFavoritesModal();
+        } else {
+          const modal = document.getElementById('favorites-modal');
+          if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+          }
+        }
+      } else {
+        // Usuario invitado o No autenticado: SIEMPRE modal de captación o registro
+        if (typeof openGuestLeadModal === 'function') {
+          openGuestLeadModal('favorites');
+        } else if (typeof openAuthModal === 'function') {
+          openAuthModal('register');
+        } else {
+          const modal = document.getElementById('guest-lead-modal');
+          if (modal) {
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            modal.style.opacity = '1';
+            modal.style.pointerEvents = 'auto';
+            document.body.style.overflow = 'hidden';
+          }
+        }
+      }
+    }
+    window.getSportsLiveUser = getSportsLiveUser;
+    window.isSportsLiveAuthenticated = isSportsLiveAuthenticated;
+    window.handleFavoritesClick = handleFavoritesClick;
+    window.handleFavoritesHeaderClick = handleFavoritesClick;
+  </script>
+</head>
+<body>
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="app-header">
+    <div class="header-container">
+      
+      <!-- A la izquierda: Logo y texto "SportsLive" -->
+      <div class="brand-wrapper" onclick="location.reload()" title="SportsLive - Deporte Base en Vivo">
+        <img src="logo.png" alt="SportsLive Logo" class="brand-logo" width="45" height="38">
+        <div class="brand-text">
+          <h1>SportsLive</h1>
+        </div>
+      </div>
+
+      <!-- Barra de navegación principal (Orden estricto de izquierda a derecha tras el logo) -->
+      <nav class="capsule-nav-group" aria-label="Navegación principal">
+        
+        <!-- 1. [ ⭐ MIS FAVORITOS ] -->
+        <button type="button" class="capsule-btn btn-favorites-capsule nav-favorites-btn" id="btn-header-favorites" data-id="btn-favorites" onclick="handleFavoritesClick(event)" title="Canales y Equipos Favoritos">
+          <span class="capsule-star">⭐</span>
+          <span class="capsule-btn-text">MIS FAVORITOS</span>
+          <span class="badge-fav-count" id="badge-fav-count" style="display: none;">0</span>
+        </button>
+
+        <!-- 2. [ ((•)) DIRECTOS ⌄ ] -->
+        <div class="capsule-dropdown-wrap" id="wrap-dropdown-directos">
+          <button type="button" class="capsule-btn active" id="btn-capsule-directos" aria-expanded="false" aria-haspopup="true">
+            <span class="capsule-icon-live">((•))</span>
+            <span class="capsule-btn-text">DIRECTOS</span>
+            <span class="capsule-btn-arrow">⌄</span>
+          </button>
+          <div class="floating-dropdown-menu directos-floating-menu" id="menu-directos" role="menu">
+            <button type="button" class="dropdown-item active" data-filter="all" onclick="selectDirectosFilter('all')">
+              <span class="item-icon">🔴</span> <span>Todos</span>
+            </button>
+            <button type="button" class="dropdown-item" data-filter="today" onclick="selectDirectosFilter('today')">
+              <span class="item-icon">📅</span> <span>Hoy</span>
+            </button>
+            <button type="button" class="dropdown-item" data-filter="weekend" onclick="selectDirectosFilter('weekend')">
+              <span class="item-icon">🗓️</span> <span>Fin de semana</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. [ DEPORTES ⌄ ] -->
+        <div class="capsule-dropdown-wrap" id="wrap-dropdown-sports">
+          <button type="button" class="capsule-btn" id="btn-capsule-sports" aria-expanded="false" aria-haspopup="true">
+            <span class="capsule-btn-text">DEPORTES</span>
+            <span class="capsule-btn-arrow">⌄</span>
+          </button>
+          <div class="floating-dropdown-menu sports-floating-menu" id="menu-sports" role="menu">
+            <button type="button" class="dropdown-item active" data-sport="all" onclick="selectSportFilter('all')">
+              <span class="item-icon">🏅</span> <span>Todos los Deportes</span>
+            </button>
+            <button type="button" class="dropdown-item" data-sport="futbol" onclick="selectSportFilter('futbol')">
+              <span class="item-icon">⚽</span> <span>Fútbol</span>
+            </button>
+            <!-- Boxeo y deportes de contacto (Jerárquico) -->
+            <div class="dropdown-item-submenu-wrap" id="wrap-sport-contacto">
+              <button type="button" class="dropdown-item dropdown-item-parent" data-sport="contacto" onclick="selectSportFilter('contacto', 'all', event)" onmouseenter="openSportSubmenu('contacto')">
+                <span class="item-icon">🥊</span> <span>Boxeo y deportes de contacto</span>
+                <span class="submenu-arrow">›</span>
+              </button>
+              <div class="dropdown-submenu" id="submenu-contacto" role="menu">
+                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="all" onclick="selectSportFilter('contacto', 'all', event)">
+                  <span class="item-icon">🥊</span> <span>Todos (Boxeo y Contacto)</span>
+                </button>
+                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="boxeo" onclick="selectSportFilter('contacto', 'boxeo', event)">
+                  <span class="item-icon">🥊</span> <span>Boxeo</span>
+                </button>
+                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="mma" onclick="selectSportFilter('contacto', 'mma', event)">
+                  <span class="item-icon">🥋</span> <span>MMA</span>
+                </button>
+                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="kickboxing" onclick="selectSportFilter('contacto', 'kickboxing', event)">
+                  <span class="item-icon">🦵</span> <span>Kickboxing</span>
+                </button>
+                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="muay_thai" onclick="selectSportFilter('contacto', 'muay_thai', event)">
+                  <span class="item-icon">🥊</span> <span>Muay Thai</span>
+                </button>
+              </div>
+            </div>
+            <button type="button" class="dropdown-item" data-sport="baloncesto" onclick="selectSportFilter('baloncesto')">
+              <span class="item-icon">🏀</span> <span>Baloncesto</span>
+            </button>
+            <button type="button" class="dropdown-item" data-sport="voleibol" onclick="selectSportFilter('voleibol')">
+              <span class="item-icon">🏐</span> <span>Voleibol</span>
+            </button>
+            <button type="button" class="dropdown-item" data-sport="balonmano" onclick="selectSportFilter('balonmano')">
+              <span class="item-icon">🤾</span> <span>Balonmano</span>
+            </button>
+            <button type="button" class="dropdown-item" data-sport="otros" onclick="selectSportFilter('otros')">
+              <span class="item-icon">🎾</span> <span>Otros</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. [ 🇪🇸 Toda España ⌄ ] -->
+        <div class="capsule-dropdown-wrap" id="wrap-dropdown-geo">
+          <button type="button" class="capsule-btn" id="btn-capsule-geo" aria-expanded="false" aria-haspopup="true">
+            <span class="capsule-btn-text" id="label-capsule-geo">🇪🇸 Toda España</span>
+            <span class="capsule-btn-arrow">⌄</span>
+          </button>
+          <div class="floating-dropdown-menu geo-floating-menu" id="menu-geo" role="menu">
+            <button type="button" class="dropdown-item active" data-ccaa="all" onclick="selectGeoCcaa('all')">
+              <span class="item-icon">🇪🇸</span> <span>Toda España</span>
+            </button>
+            <div class="dropdown-divider"></div>
+            <div class="geo-menu-scrollable" id="geo-menu-list">
+              <!-- Comunidades Autónomas inyectadas por JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. [ + EMITIR PARTIDO ] (Exclusivo para clubes y administradores) -->
+        <button type="button" class="capsule-btn btn-broadcast-capsule" id="btn-header-broadcast" onclick="openIngestionModal()" title="Panel de Club / Enviar Emisión de Partido" style="display: none;">
+          <span class="capsule-btn-text">+ EMITIR PARTIDO</span>
+        </button>
+
+        <!-- 6. [ 💼 ANÚNCIATE ] -->
+        <button type="button" class="capsule-btn btn-sponsor-capsule" id="btn-header-sponsor" onclick="openSponsorModal(event)" title="Publicidad y Patrocinio en SportsLive">
+          <span class="capsule-icon-sponsor">💼</span>
+          <span class="capsule-btn-text">ANÚNCIATE</span>
+        </button>
+
+        <!-- 7. [ 👤 INICIAR SESIÓN / REGISTRARSE ] -->
+        <div class="header-right-zone" id="user-header-zone">
+          <button type="button" class="capsule-btn account-capsule-btn btn-header-auth-prominent" id="btn-header-login" onclick="openAuthModal()" title="Acceso de usuarios, aficionados y panel de club">
+            <span class="account-icon">👤</span>
+            <span id="account-btn-label">Iniciar Sesión / Registrarse</span>
+          </button>
+        </div>
+
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- Contenedor flotante para avisos de partidos favoritos (10 min antes) -->
+  <div id="match-alert-banner-container" class="match-alert-banner-container" aria-live="assertive" role="region" aria-label="Alertas de partidos en vivo"></div>
+
+  <!-- ==================== CONTENIDO PRINCIPAL (75% / 25%) ==================== -->
+  <main class="main-content">
+    <div class="main-layout-container">
+      
+      <!-- Área principal izquierda (75% ancho) -->
+      <div class="main-primary-col">
+        
+        <!-- Columna unificada para la columna izquierda (reproductor principal, ficha de club y selección personalizada) -->
+        <div class="main-video-column" id="main-video-column">
+          <!-- Reproductor en vivo grande con bordes muy redondeados y marco sutil -->
+          <section class="featured-player-section" id="featured-player-section">
+            <div class="featured-player-card" id="featured-player-card">
+              <!-- Contenedor del reproductor principal (#main-player) -->
+              <div class="featured-video-wrapper" id="main-player" style="aspect-ratio: 16/9; width: 100%; display: block; position: relative; z-index: 1;">
+                <div id="main-player-placeholder" style="position: absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:12px; color:#94a3b8;">
+                  <div style="text-align: center;">
+                    <div class="pulsing-dot" style="margin: 0 auto 0.75rem; width: 14px; height: 14px;"></div>
+                    <p style="font-size: 0.9rem; font-weight: 500;">Cargando retransmisión oficial...</p>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Ficha inferior del partido en flujo normal debajo del reproductor -->
+              <div class="featured-player-info match-info" id="featured-player-info" style="position: relative; margin-top: 12px; clear: both; z-index: 2; display: none;">
+              </div>
+            </div>
+          </section>
+
+          <!-- Banner de Monográfico / Modo Club Exclusivo (debajo del reproductor) -->
+          <div id="club-mode-banner" class="club-mode-banner" style="display: none;">
+            <div class="club-mode-top-bar">
+              <div class="club-mode-nav-buttons">
+                <button type="button" class="btn-club-mode-nav btn-view-all-global" id="btn-view-all-global" onclick="exitToGlobalCatalog()" title="Ver todos los partidos y clubes de la plataforma sin filtros">
+                  <span class="global-icon">🌐</span>
+                  <span>Ver Todos los Partidos y Clubes</span>
+                </button>
+                <button type="button" class="btn-exit-club-mode" id="btn-exit-club-mode" onclick="exitClubMode()">
+                  <span class="exit-arrow">⬅</span>
+                  <span>Volver a Portada General</span>
+                </button>
+                <button type="button" class="btn-back-to-favorites" id="btn-back-to-favorites" onclick="backToFavoritesModal()">
+                  <span class="fav-back-icon">⭐</span>
+                  <span>Volver a Mis Favoritos</span>
+                </button>
+              </div>
+              <div class="club-mode-badge-wrap">
+                <span class="live-dot-pulse-mini"></span>
+                <span class="club-mode-badge-text">MODO CLUB • FICHA EXCLUSIVA</span>
+              </div>
+            </div>
+
+            <div class="club-mode-profile">
+              <div class="club-mode-shield-box">
+                <span class="club-mode-shield" id="club-mode-shield">🛡️</span>
+              </div>
+              <div class="club-mode-details">
+                <div class="club-mode-title-row">
+                  <h2 class="club-mode-name" id="club-mode-name">Nombre del Club</h2>
+                  <span class="badge-official-club" id="club-mode-verified" style="display: none;">🛡️ Oficial</span>
+                </div>
+                <div class="club-mode-meta" id="club-mode-meta">
+                  <span id="club-mode-sport">Deporte</span>
+                  <span class="meta-sep">•</span>
+                  <span id="club-mode-category">Categoría Oficial</span>
+                  <span class="meta-sep">•</span>
+                  <span id="club-mode-location">📍 Localidad</span>
+                  <span class="meta-sep">•</span>
+                  <span id="club-mode-count">0 vídeos</span>
+                </div>
+              </div>
+              <div class="club-mode-actions">
+                <button type="button" class="btn-club-mode-community" id="btn-club-mode-community" onclick="openClubModeCommunityChat()" title="Muro de Afición y Debate del Club">
+                  <span>💬</span>
+                  <span>Muro de Afición / Comunidad</span>
+                </button>
+                <button type="button" class="btn-follow-club" id="btn-club-mode-follow" onclick="handleClubModeToggleFollow()">
+                  <span id="icon-club-mode-follow">⭐</span>
+                  <span id="label-club-mode-follow">Siguiendo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloque destacado superior cuando hay favoritos activos (SELECCIÓN PERSONALIZADA) -->
+          <div id="favorites-highlight-banner" class="favorites-highlight-banner" style="display: none;">
+            <div class="fav-banner-content">
+              <span class="fav-banner-icon">⭐</span>
+              <div class="fav-banner-info">
+                <div class="fav-banner-headline">
+                  <span class="fav-banner-tag">SELECCIÓN PERSONALIZADA</span>
+                  <h3>En Directo y Última Semana de tus Favoritos</h3>
+                </div>
+                <p id="fav-banner-clubs-list">Mostrando partidos y emisiones de tus clubes seguidos.</p>
+              </div>
+            </div>
+            <div class="fav-banner-buttons">
+              <button type="button" class="btn-fav-manage-capsule" onclick="openFavoritesModal()">
+                <span>⚙️</span> <span>Gestionar Clubes</span>
+              </button>
+              <button type="button" class="btn-fav-toggle-capsule" id="btn-toggle-fav-mode" onclick="toggleFavoritesOnlyMode()">
+                <span>🌐</span> <span>Ver Todo el Catálogo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bloque de descubrimiento para usuarios invitados (🔥 Tendencias y Más Vistos de la Semana) -->
+          <div id="guest-discovery-banner" class="guest-discovery-banner" style="display: none;">
+            <div class="guest-discovery-header">
+              <div class="guest-discovery-headline">
+                <span class="discovery-fire-icon">🔥</span>
+                <span class="discovery-tag">DESCUBRIMIENTO EN ABIERTO</span>
+                <h3 class="discovery-title">Tendencias y Más Vistos de la Semana</h3>
+              </div>
+              <p class="discovery-subtitle">Explora los directos y resúmenes más seguidos en España. Crea tu cuenta gratuita para seguir a tus equipos y recibir alertas.</p>
+            </div>
+
+            <div class="discovery-cards-grid" id="discovery-cards-grid">
+              <!-- Rellenado dinámicamente con las retransmisiones más destacadas -->
+            </div>
+
+            <div class="guest-discovery-footer">
+              <button type="button" class="btn-discovery-cta" onclick="openGuestLeadModal('favorites')">
+                <span>⭐</span> <span>Crear Cuenta para Guardar Favoritos</span>
+              </button>
+              <button type="button" class="btn-discovery-explore" onclick="scrollToGrid()">
+                <span>⚡</span> <span>Ver Todo el Catálogo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Columna lateral derecha: DESTACADOS (6 vídeos) / CHAT EN VIVO -->
+      <aside class="main-sidebar-col" id="main-sidebar-col">
+        <div class="sidebar-tab-switcher">
+          <button type="button" class="sidebar-tab-btn active" id="tab-btn-featured" onclick="switchSidebarTab('featured')">
+            <span>★</span> <span>DESTACADOS</span>
+          </button>
+          <button type="button" class="sidebar-tab-btn" id="tab-btn-chat" onclick="switchSidebarTab('chat')">
+            <span class="live-dot-pulse-mini" id="chat-tab-live-dot" style="display: inline-block;"></span>
+            <span>💬</span> <span id="chat-tab-text">CHAT EN VIVO</span>
+          </button>
+        </div>
+
+        <!-- Panel 1: Destacados -->
+        <div class="sidebar-panel-view active" id="sidebar-view-featured">
+          <div class="featured-cards-list" id="featured-cards-list">
+            <!-- Lista de tarjetas compactas con miniaturas de partidos próximos o destacados -->
+          </div>
+        </div>
+
+        <!-- Panel 2: Chat del Directo (LIVE) o Muro de la Afición del Club (REPLAY / Canal) -->
+        <div class="sidebar-panel-view" id="sidebar-view-chat" style="display: none;">
+          <div class="live-chat-card" id="live-chat-card">
+            
+            <!-- Cabecera del chat -->
+            <div class="chat-header">
+              <div class="chat-header-title">
+                <span class="pulsing-dot-red" id="chat-pulse-indicator"></span>
+                <span class="chat-header-badge" id="chat-header-badge">🔴 Chat del Directo</span>
+              </div>
+              <span class="chat-match-badge" id="chat-match-tag">EN VIVO</span>
+            </div>
+
+            <!-- Aviso cuando el contenido NO es un directo (oculto por defecto para conmutar a Muro del Club) -->
+            <div class="chat-offline-notice" id="chat-offline-notice" style="display: none;">
+              <span class="offline-icon">ℹ️</span>
+              <p id="chat-offline-message">El chat solo está disponible durante retransmisiones en directo.</p>
+            </div>
+
+            <!-- Contenedor activo de chat -->
+            <div class="chat-active-body" id="chat-active-body" style="display: flex;">
+              <div class="chat-messages-container" id="chat-messages-container" role="log" aria-live="polite">
+                <!-- Comentarios inyectados dinámicamente -->
+              </div>
+
+              <!-- Aviso inactivo para usuarios invitados (reemplaza el formulario para invitados) -->
+              <div class="chat-guest-prompt" id="chat-guest-prompt" onclick="openGuestLeadModal('chat')" role="button" tabindex="0" title="Inicia sesión o regístrate para comentar" style="display: none;">
+                <span class="chat-guest-lock-icon">🔒</span>
+                <span class="chat-guest-prompt-text" id="chat-guest-prompt-text">Inicia sesión para escribir en el Muro de la Afición</span>
+                <span class="chat-guest-prompt-action">Entrar ›</span>
+              </div>
+
+              <!-- Input y controles de envío -->
+              <form class="chat-input-bar" id="chat-input-form" onsubmit="handleSendChatMessage(event)">
+                <div class="chat-input-row">
+                  <input 
+                    type="text" 
+                    id="chat-message-input" 
+                    class="form-input chat-input-field" 
+                    placeholder="Escribe un comentario respetuoso..." 
+                    maxlength="300"
+                    autocomplete="off"
+                    required>
+                  <button type="submit" id="btn-chat-send" class="btn-chat-send">
+                    <span>Enviar</span>
+                    <span>➤</span>
+                  </button>
+                </div>
+                <div class="chat-input-footer">
+                  <span id="chat-cooldown-notice" class="chat-cooldown-text"></span>
+                  <span class="chat-rules-hint" id="chat-rules-hint">⚽ Deportes sin insultos</span>
+                </div>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- Rejilla de eventos y repeticiones en ancho completo (sin huecos intermedios) -->
+    <section class="live-grid-section" id="live-grid-section">
+
+      <!-- Indicador de filtro activo en la portada (Club o Favoritos) -->
+      <div id="active-filter-indicator" class="active-filter-indicator" style="display: none;">
+        <div class="active-filter-badge">
+          <span class="active-filter-icon">🔍</span>
+          <span class="active-filter-text">Mostrando solo: <strong id="filter-indicator-target">[Nombre del Club]</strong></span>
+        </div>
+        <button type="button" class="btn-clear-active-filter" id="btn-clear-active-filter" onclick="exitToGlobalCatalog()" title="Restablecer vista global completa y ver todo el catálogo">
+          <span class="clear-filter-x">✕</span>
+          <span class="clear-filter-label">Ver todo el catálogo</span>
+        </button>
+      </div>
+
+      <div class="matches-section-header">
+        <div class="live-header-indicator">
+          <span class="live-dot-pulse"></span>
+          <h2 id="section-title">Partidos en Directo</h2>
+        </div>
+        <span class="matches-count" id="matches-header-count">Cargando eventos...</span>
+      </div>
+
+      <div class="matches-grid" id="matches-grid" aria-live="polite">
+        <!-- Rellenado dinámicamente con createMatchCard -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL REPRODUCTOR EMBEBIDO ==================== -->
+  <div class="modal-overlay" id="player-modal" role="dialog" aria-modal="true" aria-labelledby="player-modal-title">
+    <div class="modal-content" style="width: min(90vw, 840px); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="player-modal-title">Retransmisión en Directo</h3>
+        <button class="btn-close-modal" onclick="closePlayerModal()" aria-label="Cerrar reproductor">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Contenedor del reproductor 16:9 -->
+        <div class="video-player-container" id="video-player-container">
+          <!-- Iframe embebido de YouTube / Twitch inyectado por JS -->
+        </div>
+
+        <!-- Ficha técnica del partido -->
+        <div class="player-details">
+          <div id="player-teams">
+            <!-- Rellenado por JS -->
+          </div>
+
+          <!-- Banner destacado de patrocinador local del club o captación comercial -->
+          <div id="player-sponsor-container">
+            <div class="featured-sponsor-promo-bar" onclick="openSponsorModal(event)" onkeydown="if(event.key==='Enter'||event.key===' '){openSponsorModal(event);}" role="button" tabindex="0" title="📢 ¿Quieres poner tu empresa aquí? Haz clic y solicita tu publicidad" style="cursor: pointer; margin: 0.5rem 0;">
+              <div class="promo-bar-left">
+                <span class="promo-bar-icon">📢</span>
+                <span class="promo-bar-text">¿Quieres poner tu empresa aquí? <strong class="promo-bar-link">Haz clic y solicita tu publicidad</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de herramientas: Favoritos, Compartir, Reportar -->
+          <div class="player-actions-toolbar">
+            <button class="toolbar-btn" id="btn-modal-fav">
+              🔔 Seguir a este equipo (Aviso 10 min antes)
+            </button>
+            <button class="toolbar-btn" onclick="shareCurrentEvent()">
+              🔗 Compartir
+            </button>
+            <button class="toolbar-btn report" id="btn-modal-report">
+              🚩 Reportar emisión
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL / PANEL DE CLUB: ENVIAR EMISIÓN ==================== -->
+  <div class="modal-overlay" id="add-match-modal" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+    <div class="modal-content modal-club-emission" style="width: min(90vw, 720px); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="add-modal-title">🛡️ Panel de Club: Enviar Emisión Oficial</h3>
+          <span style="font-size: 0.82rem; color: #38bdf8;">Retransmisión oficial de partido. Las visitas y visualizaciones computarán directamente en tu canal oficial.</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeIngestionModal()" aria-label="Cerrar ventana">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-match">
+          
+          <!-- 1. Nombre del club / organizador registrado -->
+          <div class="filter-group" style="margin-bottom: 1.25rem;">
+            <label for="ingest-club-name" style="color: #38bdf8; font-weight: 700;">🛡️ Nombre del Club / Organizador Registrado</label>
+            <input 
+              type="text" 
+              id="ingest-club-name" 
+              class="form-input" 
+              placeholder="Ej: C.D. Canillas, Joventut Badalona, C.D. Las Rozas, Valencia Basket..." 
+              required
+            >
+            <span style="font-size: 0.76rem; color: #94a3b8; margin-top: 0.25rem; display: block;">
+              ✓ Emisión oficial certificada para deporte base y competiciones federadas.
+            </span>
+          </div>
+
+          <!-- 2. Enlace de la retransmisión (YouTube, Twitch, etc.) -->
+          <div class="filter-group" style="margin-bottom: 1.25rem;">
+            <label for="ingest-url">🔗 Enlace del Directo Oficial del Club (YouTube, Twitch)</label>
+            <input 
+              type="url" 
+              id="ingest-url" 
+              class="form-input" 
+              placeholder="https://www.youtube.com/watch?v=... o https://twitch.tv/..." 
+              required
+            >
+            <span style="font-size: 0.76rem; color: var(--text-dim); margin-top: 0.25rem; display: block;">
+              ⚡ Al pegar el enlace, se extraerá automáticamente la miniatura, título y plataforma oficial del club.
+            </span>
+          </div>
+
+          <!-- Tarjeta de previsualización en vivo de metadatos extraídos -->
+          <div class="url-preview-card" id="url-preview-card" style="display: none; margin-bottom: 1.25rem;">
+            <img id="preview-thumb" class="preview-thumb" src="" alt="Miniatura">
+            <div class="preview-info">
+              <h4 id="preview-title">Cargando datos del vídeo...</h4>
+              <span id="preview-channel">Extrayendo canal emisor</span>
+            </div>
+          </div>
+
+          <!-- 3. Deporte y Categoría en cascada -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="ingest-sport">Deporte</label>
+              <select id="ingest-sport" class="form-select" required></select>
+            </div>
+            <div class="filter-group" id="ingest-category-wrap">
+              <label for="ingest-category" id="label-ingest-category">Categoría Federada / Edad</label>
+              <select id="ingest-category" class="form-select" required></select>
+            </div>
+            <div class="filter-group" id="ingest-discipline-wrap" style="display: none;">
+              <label for="ingest-discipline">MODALIDAD / DISCIPLINA</label>
+              <select id="ingest-discipline" class="form-select">
+                <option value="Boxeo" selected>Boxeo</option>
+                <option value="MMA">MMA</option>
+                <option value="Kickboxing">Kickboxing</option>
+                <option value="Muay Thai">Muay Thai</option>
+                <option value="Otras disciplinas">Otras disciplinas</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 4. Comunidad Autónoma y Provincia en cascada -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="ingest-ccaa">Comunidad Autónoma</label>
+              <select id="ingest-ccaa" class="form-select" required></select>
+            </div>
+            <div class="filter-group">
+              <label for="ingest-province">Provincia</label>
+              <select id="ingest-province" class="form-select" required></select>
+            </div>
+          </div>
+
+          <!-- 5. Equipos (Local vs Visitante) -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="ingest-home-team">Equipo Local</label>
+              <input type="text" id="ingest-home-team" class="form-input" placeholder="Ej: C.D. Canillas Cadete A" required>
+            </div>
+            <div class="filter-group">
+              <label for="ingest-away-team">Equipo Visitante</label>
+              <input type="text" id="ingest-away-team" class="form-input" placeholder="Ej: E.D. Moratalaz Cadete A" required>
+            </div>
+          </div>
+
+          <!-- 6. Título del Partido -->
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="ingest-title">Título del Encuentro / Jornada</label>
+            <input type="text" id="ingest-title" class="form-input" placeholder="Ej: Jornada 8: Liga Autonómica Cadete" required>
+          </div>
+
+          <!-- 7. Fecha/Hora y Estado -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="ingest-datetime">Fecha y Hora del Encuentro</label>
+              <input type="datetime-local" id="ingest-datetime" class="form-input" required>
+            </div>
+            <div class="filter-group">
+              <label for="ingest-status">Estado de la Emisión</label>
+              <select id="ingest-status" class="form-select">
+                <option value="LIVE">🔴 En Directo Ahora (LIVE)</option>
+                <option value="UPCOMING">⏳ Próximamente (Programado)</option>
+                <option value="REPLAY">📼 Diferido / Finalizado</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 8. Campo / Instalación -->
+          <div class="filter-group" style="margin-bottom: 1.25rem;">
+            <label for="ingest-venue">Campo / Pabellón / Instalación Deportiva (Opcional)</label>
+            <input type="text" id="ingest-venue" class="form-input" placeholder="Ej: Polideportivo Municipal La Dehesa, Pista 1">
+          </div>
+
+          <!-- 9. Monetización para el club -->
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
+            <div class="form-row-2">
+              <div class="filter-group">
+                <label for="ingest-sponsor-name" style="color: #38bdf8; font-weight: 700;">Patrocinador Local del Club (Opcional)</label>
+                <input type="text" id="ingest-sponsor-name" class="form-input" placeholder="Ej: Carnicería Sierra de Guadarrama">
+              </div>
+              <div class="filter-group">
+                <label for="ingest-sponsor-url" style="color: #38bdf8; font-weight: 700;">Enlace Patrocinador (Web / Redes)</label>
+                <input type="url" id="ingest-sponsor-url" class="form-input" placeholder="https://carniceriaguadarrama.es">
+              </div>
+            </div>
+            <span style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.4rem; display: block;">
+              💡 El banner de tu patrocinador se integrará en el reproductor de SportsLive para ayudarte a monetizar cada directo.
+            </span>
+          </div>
+
+          <button type="submit" class="btn-submit-emission" style="width: 100%; justify-content: center; padding: 0.9rem; font-size: 0.95rem;">
+            🚀 Publicar Emisión Oficial en SportsLive
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: CANALES Y EQUIPOS FAVORITOS ==================== -->
+  <div class="modal-overlay" id="favorites-modal" role="dialog" aria-modal="true" aria-labelledby="favorites-modal-title" onclick="if(event.target === this) closeFavoritesModal();">
+    <div class="modal-content modal-favorites" style="width: min(90vw, 680px); max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation();">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="favorites-modal-title">⭐ Canales y Equipos Favoritos</h3>
+          <span style="font-size: 0.82rem; color: #38bdf8;">Sigue a tus clubes oficiales para ver sus directos y retransmisiones de la última semana directamente en tu portada.</span>
+        </div>
+        <button class="btn-close-modal" onclick="event.stopPropagation(); closeFavoritesModal();" aria-label="Cerrar favoritos">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Selector de pestañas del modal de favoritos -->
+        <div class="fav-modal-nav-tabs" role="tablist" aria-label="Pestañas de favoritos">
+          <button type="button" class="fav-nav-tab-btn active" id="fav-nav-tab-my-clubs" role="tab" aria-selected="true" aria-controls="fav-tab-content-my-clubs" onclick="switchFavModalTab('my_clubs')">
+            <span>⭐</span>
+            <span>Mis Clubes Favoritos</span>
+            <span class="fav-tab-count-badge" id="fav-my-clubs-badge">0</span>
+          </button>
+          <button type="button" class="fav-nav-tab-btn" id="fav-nav-tab-search" role="tab" aria-selected="false" aria-controls="fav-tab-content-search" onclick="switchFavModalTab('search')">
+            <span>🔍</span>
+            <span>Buscar Favoritos</span>
+          </button>
+        </div>
+
+        <!-- Pestaña 1: ⭐ Mis Clubes Favoritos -->
+        <div class="fav-tab-content active" id="fav-tab-content-my-clubs" role="tabpanel" aria-labelledby="fav-nav-tab-my-clubs">
+          <div class="fav-clubs-container" id="fav-clubs-list-my" role="list">
+            <!-- Inyectado dinámicamente con los clubes que el usuario sigue -->
+          </div>
+        </div>
+
+        <!-- Pestaña 2: 🔍 Buscar Favoritos -->
+        <div class="fav-tab-content" id="fav-tab-content-search" role="tabpanel" aria-labelledby="fav-nav-tab-search" style="display: none;">
+          <!-- Buscador de clubes -->
+          <div class="fav-search-container">
+            <div class="fav-search-box">
+              <span class="fav-search-icon">🔍</span>
+              <input 
+                type="text" 
+                id="fav-club-search-input" 
+                class="form-input fav-search-input" 
+                placeholder="Buscar club o canal oficial (ej. Intercity, Las Rozas, Joventut...)" 
+                oninput="filterClubsInModal(this.value)">
+            </div>
+          </div>
+
+          <!-- Filtros rápidos por deporte para los clubes -->
+          <div class="fav-sport-pills" id="fav-sport-pills">
+            <button type="button" class="fav-pill active" data-sport="all" onclick="filterFavClubsBySport('all')">Todos los Deportes</button>
+            <button type="button" class="fav-pill" data-sport="futbol" onclick="filterFavClubsBySport('futbol')">⚽ Fútbol</button>
+            <button type="button" class="fav-pill" data-sport="contacto" onclick="filterFavClubsBySport('contacto')">🥊 Boxeo y Contacto</button>
+            <button type="button" class="fav-pill" data-sport="baloncesto" onclick="filterFavClubsBySport('baloncesto')">🏀 Baloncesto</button>
+            <button type="button" class="fav-pill" data-sport="balonmano" onclick="filterFavClubsBySport('balonmano')">🤾 Balonmano</button>
+          </div>
+
+          <!-- Listado de clubes y canales oficiales -->
+          <div class="fav-clubs-container" id="fav-clubs-list" role="list">
+            <!-- Inyectado dinámicamente por JS -->
+          </div>
+        </div>
+
+        <!-- Footer / Resumen -->
+        <div class="fav-modal-footer">
+          <div class="fav-summary-text">
+            <span id="fav-modal-counter">0 clubes seguidos</span>
+          </div>
+          <div class="fav-modal-actions">
+            <button type="button" class="btn-cancel-modal" onclick="event.stopPropagation(); closeFavoritesModal();">Cerrar</button>
+            <button type="button" class="btn-upload" onclick="event.stopPropagation(); handleApplyFavoritesAndClose();">
+              <span>✓</span> <span>Ver mis Favoritos</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL SELECTOR GEOGRÁFICO ==================== -->
+  <div class="modal-overlay" id="geo-modal" role="dialog" aria-modal="true" aria-labelledby="geo-modal-title">
+    <div class="modal-content" style="width: min(90vw, 600px); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="geo-modal-title">Seleccionar Provincia / Región</h3>
+        <button class="btn-close-modal" onclick="closeGeoModal()" aria-label="Cerrar selector">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Selecciona tu provincia para mostrar prioritariamente los partidos de tu localidad o pulsa "Toda España" para explorar todo el deporte base nacional.
+        </p>
+        <div id="geo-provinces-list" style="max-height: 60vh; overflow-y: auto; padding-right: 0.5rem;">
+          <!-- Inyectado por JS con las 50 provincias agrupadas por CCAA -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL AUTENTICACIÓN / ROLES ==================== -->
+  <div class="modal-overlay" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <div class="modal-content" style="width: min(90vw, 560px); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="auth-modal-title">Acceso y Registro de Usuarios</h3>
+          <span style="font-size: 0.82rem; color: #94a3b8;">Gestión de perfiles (Aficionado, Club Verificado y Administrador)</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeAuthModal()" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Pestañas de Iniciar Sesión / Crear Cuenta -->
+        <div class="auth-tabs" style="margin-bottom: 1.25rem;">
+          <button class="auth-tab-btn active" id="btn-tab-login" type="button" onclick="switchAuthTab('login')">
+            🔑 Iniciar Sesión
+          </button>
+          <button class="auth-tab-btn" id="btn-tab-register" type="button" onclick="switchAuthTab('register')">
+            📝 Crear Cuenta
+          </button>
+        </div>
+
+        <!-- FORMULARIO 1: INICIAR SESIÓN -->
+        <form id="form-login" onsubmit="handleLoginSubmit(event)">
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="login-identity">Correo Electrónico o Nombre de Usuario</label>
+            <input 
+              type="text" 
+              id="login-identity" 
+              class="form-input" 
+              placeholder="ej: admin, cf_intercity, aficionado o tu correo" 
+              required
+              autocomplete="username"
+            >
+          </div>
+
+          <div class="filter-group" style="margin-bottom: 1.25rem;">
+            <label for="login-password">Contraseña</label>
+            <input 
+              type="password" 
+              id="login-password" 
+              class="form-input" 
+              placeholder="Introduce tu contraseña" 
+              required
+              autocomplete="current-password"
+            >
+          </div>
+
+          <div id="login-error" class="auth-error-msg" style="display: none;"></div>
+
+          <button type="submit" class="btn-upload" style="width: 100%; justify-content: center; padding: 0.75rem;">
+            Entrar a la Plataforma
+          </button>
+
+          <!-- Acceso rápido de prueba para los 3 niveles / roles solicitados -->
+          <div class="quick-login-box">
+            <span class="quick-login-title">⚡ Acceso Rápido de Demostración (1 Clic por Rol):</span>
+            <div class="quick-login-buttons">
+              <button type="button" class="btn-quick-role role-admin" onclick="fillAndLogin('admin', 'admin123')">
+                <span class="role-icon">👑</span>
+                <span class="role-desc"><strong>Administrador General (Rol 3)</strong><small>Aprobar clubes, editar eventos y control total</small></span>
+              </button>
+              <button type="button" class="btn-quick-role role-club" onclick="fillAndLogin('cf_intercity', 'club123')">
+                <span class="role-icon">🛡️</span>
+                <span class="role-desc"><strong>Club CF Intercity (Club Verificado - Rol 2)</strong><small>Acceso directo a su Panel de Emisión de streaming</small></span>
+              </button>
+              <button type="button" class="btn-quick-role role-viewer" onclick="fillAndLogin('aficionado', 'user123')">
+                <span class="role-icon">👤</span>
+                <span class="role-desc"><strong>Aficionado / Espectador (Rol 1)</strong><small>Ver eventos, guardar favoritos y filtrar deportes</small></span>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- FORMULARIO 2: CREAR CUENTA (CON SELECTOR DE NIVEL / ROL) -->
+        <form id="form-register" style="display: none;" onsubmit="handleRegisterSubmit(event)">
+          <!-- Selector de Rol para la nueva cuenta -->
+          <div style="margin-bottom: 1.15rem;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.5rem;">
+              Selecciona el tipo de cuenta que deseas registrar:
+            </label>
+            <div class="reg-role-selector">
+              <button type="button" class="reg-role-btn active" id="btn-role-aficionado" onclick="selectRegisterRole('aficionado')">
+                <span class="reg-role-icon">👤</span>
+                <div class="reg-role-info">
+                  <strong>Rol 1: Aficionado / Espectador</strong>
+                  <small>Ver partidos, guardar favoritos y alertas</small>
+                </div>
+              </button>
+              <button type="button" class="reg-role-btn" id="btn-role-club" onclick="selectRegisterRole('club')">
+                <span class="reg-role-icon">🛡️</span>
+                <div class="reg-role-info">
+                  <strong>Rol 2: Club Deportivo Verificado</strong>
+                  <small>Emitir retransmisiones y panel propio</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <input type="hidden" id="reg-role-value" value="aficionado">
+
+          <!-- Campos específicos para Club Verificado (Rol 2) -->
+          <div id="reg-club-fields" style="display: none; background: rgba(56, 189, 248, 0.07); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="font-weight: 700; color: #38bdf8; font-size: 0.85rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+              <span>🛡️</span> <span>Datos Oficiales del Club Emisor</span>
+            </div>
+            <div class="filter-group" style="margin-bottom: 0.75rem;">
+              <label for="reg-club-name">Nombre Oficial del Club / Entidad *</label>
+              <input type="text" id="reg-club-name" class="form-input" placeholder="Ej: C.F. Intercity o Lucentum Alicante">
+            </div>
+            <div class="form-row-2" style="margin-bottom: 0.75rem;">
+              <div class="filter-group">
+                <label for="reg-club-cif">CIF / Identificador Oficial *</label>
+                <input type="text" id="reg-club-cif" class="form-input" placeholder="Ej: G-28123456">
+              </div>
+              <div class="filter-group">
+                <label for="reg-club-location">Localidad / Municipio y Prov. *</label>
+                <input type="text" id="reg-club-location" class="form-input" placeholder="Ej: Alicante (Alicante)">
+              </div>
+            </div>
+            <div class="filter-group" style="margin-bottom: 0.25rem;">
+              <label for="reg-club-auth-key" style="color: #f59e0b; font-weight: 700;">
+                🔑 Código de Invitación / Clave de Autorización Oficial *
+              </label>
+              <input type="text" id="reg-club-auth-key" class="form-input" style="border-color: rgba(245, 158, 11, 0.5); text-transform: uppercase;" placeholder="Introduce el código facilitado por la administración de SportsLive" autocomplete="off">
+              <div style="margin-top: 0.45rem; font-size: 0.78rem; color: #94a3b8;">
+                ¿Eres un club y necesitas tu clave de acceso? <a href="#" id="link-request-club-key" onclick="requestClubKeyInfo(event)" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">[Solicitar Clave de Emisión]</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campos generales (Nombre, Login, Email, Password) -->
+          <div class="filter-group" style="margin-bottom: 0.9rem;">
+            <label for="reg-fullname" id="label-reg-fullname">Nombre y Apellidos</label>
+            <input type="text" id="reg-fullname" class="form-input" placeholder="Ej: Carlos Gómez (o Responsable de Emisión)" required>
+          </div>
+          <div class="form-row-2" style="margin-bottom: 0.9rem;">
+            <div class="filter-group">
+              <label for="reg-username">Usuario (Login)</label>
+              <input type="text" id="reg-username" class="form-input" placeholder="Ej: cf_intercity o carlos88" required autocomplete="username">
+            </div>
+            <div class="filter-group">
+              <label for="reg-email">Correo Electrónico</label>
+              <input type="email" id="reg-email" class="form-input" placeholder="club@ejemplo.es" required autocomplete="email">
+            </div>
+          </div>
+          <div class="filter-group" style="margin-bottom: 1.25rem;">
+            <label for="reg-password">Contraseña</label>
+            <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
+          </div>
+
+          <div id="register-error" class="auth-error-msg" style="display: none;"></div>
+
+          <button type="submit" id="btn-submit-register" class="btn-upload" style="width: 100%; justify-content: center; padding: 0.75rem;">
+            Crear Cuenta de Aficionado
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL / PANEL DE MI CLUB ==================== -->
+  <div class="modal-overlay" id="club-modal" role="dialog" aria-modal="true" aria-labelledby="club-modal-title">
+    <div class="modal-content" style="width: min(90vw, 860px); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="club-modal-title">🛡️ Panel de Mi Club Deportivo</h3>
+          <span id="club-modal-subtitle" style="font-size: 0.85rem; color: #6ee7b7;">Gestionando emisiones oficiales</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeClubModal()" aria-label="Cerrar panel">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Barra de herramientas del club -->
+        <div class="club-toolbar">
+          <div class="club-stats-summary">
+            <span id="club-matches-counter">0 partidos registrados</span>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <a id="btn-view-my-club-page" href="club.html" target="_blank" class="btn-secondary" style="padding: 0.55rem 0.9rem; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); background: rgba(56,189,248,0.1);">
+              <span>📺</span>
+              <span>Ver Mi Canal Oficial</span>
+            </a>
+            <button class="btn-upload" onclick="openClubIngestion()">
+              <span>+</span>
+              <span>Emitir / Programar Partido de mi Club</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista de partidos del club -->
+        <div id="club-matches-container" class="club-matches-grid">
+          <!-- Inyectado dinámicamente por JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL / PANEL DE CONTROL ADMINISTRADOR ==================== -->
+  <div class="modal-overlay" id="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+    <div class="modal-content modal-admin" style="width: min(90vw, 980px); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="admin-modal-title">👑 Panel de Control Global (Administrador)</h3>
+          <span style="font-size: 0.85rem; color: #fde68a;">Acceso completo para modificar todo el programa, partidos, clubes y usuarios</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <button type="button" class="btn-sync-rss-admin" id="btn-admin-sync-rss" onclick="triggerAdminRssSync()" title="Consultar el Feed RSS público de todos los canales de YouTube y añadir vídeos nuevos">
+            <span class="sync-icon">🔄</span>
+            <span>Sincronizar Canales RSS Ahora</span>
+          </button>
+          <button class="btn-close-modal" onclick="closeAdminModal()" aria-label="Cerrar panel">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Pestañas de Administración -->
+        <div class="auth-tabs" style="margin-bottom: 1.5rem;">
+          <button class="auth-tab-btn active" id="btn-admin-tab-matches" type="button" onclick="switchAdminTab('matches')">
+            ⚽ Todos los Partidos
+          </button>
+          <button class="auth-tab-btn" id="btn-admin-tab-clubs" type="button" onclick="switchAdminTab('clubs')">
+            🛡️ Clubes y Canales Oficiales
+          </button>
+          <button class="auth-tab-btn" id="btn-admin-tab-users" type="button" onclick="switchAdminTab('users')">
+            👥 Gestión de Usuarios y Cuentas
+          </button>
+          <button class="auth-tab-btn" id="btn-admin-tab-stats" type="button" onclick="switchAdminTab('stats')">
+            📊 Métricas y Copias
+          </button>
+        </div>
+
+        <!-- Vista 1: Gestión de Todos los Partidos -->
+        <div id="admin-tab-matches">
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+            <input type="text" id="admin-search-matches" class="form-input" placeholder="Filtrar por equipo, club o título..." oninput="filterAdminMatches()">
+            <button class="btn-upload" onclick="openIngestionModal()">
+              <span>+</span>
+              <span>Añadir Partido</span>
+            </button>
+          </div>
+          <div class="admin-table-wrapper">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Estado</th>
+                  <th>Partido</th>
+                  <th>Club Emisor</th>
+                  <th>Deporte / Prov.</th>
+                  <th>Marcador</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="admin-matches-tbody">
+                <!-- Rellenado por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vista 2: Gestión de Clubes y Canales Oficiales de YouTube -->
+        <div id="admin-tab-clubs" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h4 style="margin: 0; color: #f1f5f9;">🛡️ Canales Oficiales y Catálogo de Clubes</h4>
+              <span style="font-size: 0.8rem; color: #94a3b8;">Registra clubes con su canal de YouTube (incluso si su estado es OFFLINE) e ingesta sus vídeos anteriores</span>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn-sync-rss-admin" id="btn-admin-sync-rss-tab" onclick="triggerAdminRssSync()" title="Consultar el Feed RSS público de todos los canales de YouTube y añadir vídeos nuevos">
+                <span class="sync-icon">🔄</span>
+                <span>Sincronizar Canales RSS Ahora</span>
+              </button>
+              <button class="btn-upload" onclick="toggleNewClubForm()">
+                <span>+</span>
+                <span>Alta de Club y Canal YouTube</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Formulario colapsable para dar de alta nuevo club oficial -->
+          <div id="new-club-form-container" class="admin-card-box" style="display: none; margin-bottom: 1.5rem; background: rgba(15,23,42,0.9); border: 1px solid rgba(56,189,248,0.3); border-radius: 12px; padding: 1.25rem;">
+            <h5 style="margin-bottom: 1rem; color: #38bdf8; font-size: 1rem;">🛡️ Registrar Club Oficial y Vincular Canal de YouTube</h5>
+            <form id="form-admin-create-club" onsubmit="handleAdminCreateClub(event)">
+              <div class="form-row-2" style="margin-bottom: 1rem;">
+                <div class="filter-group">
+                  <label for="adm-club-official-name">Nombre Oficial del Club</label>
+                  <input type="text" id="adm-club-official-name" class="form-input" placeholder="Ej: C.F. Fuenlabrada Cantera" required>
+                </div>
+                <div class="filter-group">
+                  <label for="adm-club-sport">Deporte</label>
+                  <select id="adm-club-sport" class="form-select" onchange="handleAdminSportChange(this.value)">
+                    <option value="futbol" selected>⚽ Fútbol</option>
+                    <option value="contacto">🥊 Boxeo y deportes de contacto</option>
+                    <option value="baloncesto">🏀 Baloncesto</option>
+                    <option value="futsal">⚽ Fútbol Sala</option>
+                    <option value="balonmano">🤾‍♂️ Balonmano</option>
+                    <option value="voleibol">🏐 Voleibol</option>
+                    <option value="rugby">🏉 Rugby</option>
+                    <option value="hockey">🏑 Hockey</option>
+                    <option value="waterpolo">🤽‍♂️ Waterpolo</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row-2" id="adm-club-discipline-row" style="margin-bottom: 1rem; display: none;">
+                <div class="filter-group" id="adm-club-discipline-wrap">
+                  <label for="adm-club-discipline">MODALIDAD / DISCIPLINA</label>
+                  <select id="adm-club-discipline" class="form-select">
+                    <option value="Boxeo" selected>Boxeo</option>
+                    <option value="MMA">MMA</option>
+                    <option value="Kickboxing">Kickboxing</option>
+                    <option value="Muay Thai">Muay Thai</option>
+                    <option value="Otras disciplinas">Otras disciplinas</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row-2" style="margin-bottom: 1rem;">
+                <div class="filter-group">
+                  <label for="adm-club-category">Categoría Federada</label>
+                  <input type="text" id="adm-club-category" class="form-input" placeholder="Ej: Juvenil División de Honor / Cadete Autonómica" required>
+                </div>
+                <div class="filter-group">
+                  <label for="adm-club-location">Localidad / Municipio</label>
+                  <input type="text" id="adm-club-location" class="form-input" placeholder="Ej: Fuenlabrada, Alcorcón, Madrid..." required>
+                </div>
+              </div>
+              <div class="form-row-2" style="margin-bottom: 1rem;">
+                <div class="filter-group">
+                  <label for="adm-club-youtube-url">Canal Oficial de YouTube (channel_url)</label>
+                  <input type="url" id="adm-club-youtube-url" class="form-input" placeholder="https://www.youtube.com/@cffuenlabrada" required>
+                </div>
+                <div class="filter-group">
+                  <label for="adm-club-shield-icon">Icono / Distintivo del Escudo</label>
+                  <input type="text" id="adm-club-shield-icon" class="form-input" placeholder="Ej: 🔵⚪ o 🛡️" value="🔵⚪">
+                </div>
+              </div>
+              <div class="filter-group" style="margin-bottom: 1rem;">
+                <label for="adm-club-description">Descripción Oficial del Club</label>
+                <input type="text" id="adm-club-description" class="form-input" placeholder="Breve descripción o cantera del club formativo">
+              </div>
+              <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" class="btn-reset-filters" onclick="toggleNewClubForm()">Cancelar</button>
+                <button type="submit" class="btn-upload">✓ Dar de Alta Club Oficial</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="admin-table-wrapper">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Club Oficial</th>
+                  <th>Deporte / Categoría</th>
+                  <th>Localidad</th>
+                  <th>Canal YouTube</th>
+                  <th>Vídeos Anteriores</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="admin-clubs-tbody">
+                <!-- Rellenado dinámicamente por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vista 3: Gestión de Usuarios y Creación de Cuentas -->
+        <div id="admin-tab-users" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4 style="margin: 0;">Usuarios Registrados en SportsLive</h4>
+            <button class="btn-upload" onclick="toggleNewUserForm()">
+              <span>+</span>
+              <span>Dar de Alta Nuevo Club / Usuario</span>
+            </button>
+          </div>
+
+          <!-- Formulario colapsable para crear nuevo usuario/club -->
+          <div id="new-user-form-container" class="admin-card-box" style="display: none; margin-bottom: 1.5rem;">
+            <h5 style="margin-bottom: 1rem; color: #93c5fd;">Registrar Nuevo Usuario / Club Oficial</h5>
+            <form id="form-admin-create-user" onsubmit="handleAdminCreateUser(event)">
+              <div class="form-row-2" style="margin-bottom: 1rem;">
+                <div class="filter-group">
+                  <label for="adm-username">Nombre de Usuario (Login)</label>
+                  <input type="text" id="adm-username" class="form-input" placeholder="ej: cantera_malaga" required>
+                </div>
+                <div class="filter-group">
+                  <label for="adm-email">Correo Electrónico</label>
+                  <input type="email" id="adm-email" class="form-input" placeholder="prensa@clubmalaga.es" required>
+                </div>
+              </div>
+              <div class="form-row-2" style="margin-bottom: 1rem;">
+                <div class="filter-group">
+                  <label for="adm-password">Contraseña</label>
+                  <input type="text" id="adm-password" class="form-input" value="club123" required>
+                </div>
+                <div class="filter-group">
+                  <label for="adm-role">Rol en la Plataforma</label>
+                  <select id="adm-role" class="form-select" onchange="toggleClubFieldInAdminUser(this.value)">
+                    <option value="club" selected>🛡️ Club Deportivo (Puede emitir y gestionar su equipo)</option>
+                    <option value="viewer">👤 Aficionado (Solo visualización)</option>
+                    <option value="admin">👑 Administrador (Control total)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row-2" style="margin-bottom: 1rem;">
+                <div class="filter-group" id="adm-club-name-group">
+                  <label for="adm-club-name">Nombre Oficial del Club</label>
+                  <input type="text" id="adm-club-name" class="form-input" placeholder="Ej: Málaga C.F. Cantera">
+                </div>
+                <div class="filter-group">
+                  <label for="adm-fullname">Nombre / Contacto</label>
+                  <input type="text" id="adm-fullname" class="form-input" placeholder="Ej: Delegado Manuel Ruiz">
+                </div>
+              </div>
+              <div class="form-row-2" id="adm-club-extra-group" style="margin-bottom: 1rem;">
+                <div class="filter-group">
+                  <label for="adm-cif">CIF / Identificador</label>
+                  <input type="text" id="adm-cif" class="form-input" placeholder="Ej: G-29876543">
+                </div>
+                <div class="filter-group">
+                  <label for="adm-location">Localidad / Municipio</label>
+                  <input type="text" id="adm-location" class="form-input" placeholder="Ej: Málaga">
+                </div>
+              </div>
+              <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" class="btn-reset-filters" onclick="toggleNewUserForm()">Cancelar</button>
+                <button type="submit" class="btn-upload">Crear Cuenta</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="admin-table-wrapper">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Rol</th>
+                  <th>Usuario / CIF</th>
+                  <th>Correo / Localidad</th>
+                  <th>Club Oficial</th>
+                  <th>Verificación</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-tbody">
+                <!-- Rellenado por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vista 3: Métricas y Copias de Seguridad -->
+        <div id="admin-tab-stats" style="display: none;">
+          <div class="admin-stats-cards">
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-stat-events">0</span>
+              <span class="stat-label">Total Partidos Registrados</span>
+            </div>
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-stat-users">0</span>
+              <span class="stat-label">Usuarios Totales</span>
+            </div>
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-stat-clubs">0</span>
+              <span class="stat-label">Clubes Oficiales</span>
+            </div>
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-stat-provinces">0</span>
+              <span class="stat-label">Provincias Activas</span>
+            </div>
+          </div>
+          
+          <div class="admin-card-box" style="margin-top: 1.5rem;">
+            <h4>Copia de Seguridad y Exportación</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+              Exporta un archivo comprimido (.zip) con la base de datos completa y los partidos en JSON para compartir o guardar backup.
+            </p>
+            <button class="btn-upload" onclick="exportAppToShare()">
+              <span>📦</span>
+              <span>Exportar Copia Completa a 'compartir/'</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE EDICIÓN DE PARTIDO ==================== -->
+  <div class="modal-overlay" id="edit-match-modal" role="dialog" aria-modal="true" aria-labelledby="edit-match-modal-title">
+    <div class="modal-content" style="width: min(90vw, 680px); max-width: 680px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="edit-match-modal-title">Modificar Retransmisión</h3>
+        <button class="btn-close-modal" onclick="closeEditMatchModal()" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-edit-match" onsubmit="handleEditMatchSubmit(event)">
+          <input type="hidden" id="edit-id">
+
+          <!-- URL y extracción -->
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="edit-url">Enlace del directo / vídeo (YouTube, Twitch)</label>
+            <input type="url" id="edit-url" class="form-input" required>
+          </div>
+
+          <!-- Título -->
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="edit-title">Título del Partido</label>
+            <input type="text" id="edit-title" class="form-input" required>
+          </div>
+
+          <!-- Equipos y Marcadores -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="edit-home-team">Equipo Local</label>
+              <input type="text" id="edit-home-team" class="form-input" required>
+            </div>
+            <div class="filter-group">
+              <label for="edit-home-score">Goles / Puntos Local</label>
+              <input type="number" id="edit-home-score" class="form-input" placeholder="Ej: 2" min="0">
+            </div>
+          </div>
+
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="edit-away-team">Equipo Visitante</label>
+              <input type="text" id="edit-away-team" class="form-input" required>
+            </div>
+            <div class="filter-group">
+              <label for="edit-away-score">Goles / Puntos Visitante</label>
+              <input type="number" id="edit-away-score" class="form-input" placeholder="Ej: 1" min="0">
+            </div>
+          </div>
+
+          <!-- Estado y Fecha/hora -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="edit-status">Estado de la Retransmisión</label>
+              <select id="edit-status" class="form-select">
+                <option value="LIVE">🔴 En Directo Ahora</option>
+                <option value="UPCOMING">⏳ Próximamente</option>
+                <option value="REPLAY">📼 Diferido / Finalizado</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="edit-datetime">Fecha y Hora</label>
+              <input type="datetime-local" id="edit-datetime" class="form-input" required>
+            </div>
+          </div>
+
+          <!-- Deporte y Provincia -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="edit-sport">Deporte</label>
+              <select id="edit-sport" class="form-select"></select>
+            </div>
+            <div class="filter-group" id="edit-discipline-wrap" style="display: none;">
+              <label for="edit-discipline">MODALIDAD / DISCIPLINA</label>
+              <select id="edit-discipline" class="form-select">
+                <option value="Boxeo" selected>Boxeo</option>
+                <option value="MMA">MMA</option>
+                <option value="Kickboxing">Kickboxing</option>
+                <option value="Muay Thai">Muay Thai</option>
+                <option value="Otras disciplinas">Otras disciplinas</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="edit-province">Provincia</label>
+              <select id="edit-province" class="form-select"></select>
+            </div>
+          </div>
+
+          <!-- Instalación y Club -->
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="edit-venue">Campo / Pabellón</label>
+              <input type="text" id="edit-venue" class="form-input">
+            </div>
+            <div class="filter-group" id="edit-club-group">
+              <label for="edit-club-name">Club Emisor</label>
+              <input type="text" id="edit-club-name" class="form-input">
+            </div>
+          </div>
+
+          <!-- Patrocinador -->
+          <div class="form-row-2" style="margin-bottom: 1.25rem;">
+            <div class="filter-group">
+              <label for="edit-sponsor-name">Patrocinador Local</label>
+              <input type="text" id="edit-sponsor-name" class="form-input">
+            </div>
+            <div class="filter-group">
+              <label for="edit-sponsor-url">Enlace Patrocinador</label>
+              <input type="url" id="edit-sponsor-url" class="form-input">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button type="button" class="btn-reset-filters" onclick="closeEditMatchModal()">Cancelar</button>
+            <button type="submit" class="btn-upload">Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Publicidad, Tarifas y Dossier de Patrocinio Comercial -->
+  <div class="modal-overlay" id="sponsor-modal" role="dialog" aria-modal="true" aria-labelledby="sponsor-modal-title" onclick="if(event.target === this) closeSponsorModal();">
+    <div class="modal-content modal-sponsor" style="width: min(90vw, 860px); max-width: 860px; max-height: 90vh; overflow-y: auto;" onclick="event.stopPropagation();">
+      
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <h3 class="modal-title" id="sponsor-modal-title">💼 Publicidad y Patrocinio en SportsLive</h3>
+          <p class="modal-subtitle" style="font-size: 0.85rem; color: #94a3b8; margin: 0.25rem 0 0 0;">
+            Llega directamente a las familias, deportistas y aficionados del deporte base
+          </p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSponsorModal()" aria-label="Cerrar ventana">✕</button>
+      </div>
+
+      <div class="modal-body sponsor-modal-body">
+        
+        <!-- Rejilla con 3 planes/tarifas claras -->
+        <div class="sponsor-pricing-grid">
+          
+          <!-- Plan 1 -->
+          <div class="sponsor-pricing-card" onclick="selectSponsorPlan('Banner Partido Individual')">
+            <div class="pricing-card-header">
+              <span class="plan-icon">🎟️</span>
+              <h4>Banner Partido Individual</h4>
+              <div class="plan-price">Desde <strong>20 €</strong> <span class="price-period">/ partido</span></div>
+            </div>
+            <p class="plan-desc">Ideal para negocios locales que quieren anunciarse en un derbi comarcal o partido decisivo.</p>
+            <ul class="plan-features">
+              <li>✓ Presencia en directo y diferido (repeticiones)</li>
+              <li>✓ Enlace a web / WhatsApp del comercio</li>
+              <li>✓ Logotipo en la franja del reproductor</li>
+              <li>✓ Máxima visibilidad para las aficiones locales</li>
+            </ul>
+            <button type="button" class="btn-select-plan" onclick="selectSponsorPlan('Banner Partido Individual', event)">
+              Elegir este Plan
+            </button>
+          </div>
+
+          <!-- Plan 2 (Destacado) -->
+          <div class="sponsor-pricing-card featured-plan" onclick="selectSponsorPlan('Pack Mensual Cantera/Club')">
+            <div class="plan-badge-popular">⭐ MÁS POPULAR</div>
+            <div class="pricing-card-header">
+              <span class="plan-icon">🛡️</span>
+              <h4>Pack Mensual Cantera/Club</h4>
+              <div class="plan-price">Desde <strong>65 €</strong> <span class="price-period">/ mes</span></div>
+            </div>
+            <p class="plan-desc">Apoyo continuo a las categorías inferiores del club con presencia durante todo el mes.</p>
+            <ul class="plan-features">
+              <li>✓ Presencia continua en todas las emisiones del club durante el mes</li>
+              <li>✓ Rotación preferente en directos y biblioteca diferida</li>
+              <li>✓ Logotipo y enlace oficial en cada partido</li>
+              <li>✓ Impacto directo en familias, técnicos y deportistas</li>
+            </ul>
+            <button type="button" class="btn-select-plan btn-select-featured" onclick="selectSponsorPlan('Pack Mensual Cantera/Club', event)">
+              Elegir este Plan
+            </button>
+          </div>
+
+          <!-- Plan 3 -->
+          <div class="sponsor-pricing-card" onclick="selectSponsorPlan('Patrocinador Autonómico / Premium')">
+            <div class="pricing-card-header">
+              <span class="plan-icon">👑</span>
+              <h4>Patrocinador Autonómico / Premium</h4>
+              <div class="plan-price">Tarifa <strong>a Medida</strong> <span class="price-period">(Consultar)</span></div>
+            </div>
+            <p class="plan-desc">Presencia destacada en eventos regionales y torneos oficiales con cobertura autonómica.</p>
+            <ul class="plan-features">
+              <li>✓ Presencia destacada en eventos regionales y torneos oficiales</li>
+              <li>✓ Posicionamiento en cabeceras de categorías y filtros autonómicos</li>
+              <li>✓ Mención especial y banner interactivo de gran formato</li>
+              <li>✓ Informe de impresiones y visitas generadas</li>
+            </ul>
+            <button type="button" class="btn-select-plan" onclick="selectSponsorPlan('Patrocinador Autonómico / Premium', event)">
+              Consultar Tarifas
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Bloque de contacto rápido -->
+        <div class="sponsor-contact-section">
+          <div class="sponsor-contact-header">
+            <h4>📬 Solicita Información o Reserva tu Anuncio</h4>
+            <p>Rellena este breve formulario y te enviaremos la propuesta comercial adaptada a tu negocio.</p>
+          </div>
+
+          <form class="sponsor-lead-form" id="sponsor-lead-form" onsubmit="handleSendSponsorLead(event)">
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label for="sponsor-company">Nombre del Negocio / Empresa *</label>
+                <input type="text" id="sponsor-company" class="form-input" placeholder="Ej: Cafetería El Rincón, Taller Motor..." required>
+              </div>
+              <div class="form-group">
+                <label for="sponsor-contact">Teléfono o Email *</label>
+                <input type="text" id="sponsor-contact" class="form-input" placeholder="Ej: 611 223 344 / info@miempresa.es" required>
+              </div>
+            </div>
+
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label for="sponsor-interest">Equipo o Deporte de Interés</label>
+                <input type="text" id="sponsor-interest" class="form-input" placeholder="Ej: C.D. Las Rozas, Baloncesto Cadete, etc.">
+              </div>
+              <div class="form-group">
+                <label for="sponsor-plan-select">Plan Seleccionado</label>
+                <select id="sponsor-plan-select" class="form-select">
+                  <option value="Banner Partido Individual">Banner Partido Individual (Desde 20 € / partido)</option>
+                  <option value="Pack Mensual Cantera/Club" selected>Pack Mensual Cantera/Club (Desde 65 € / mes)</option>
+                  <option value="Patrocinador Autonómico / Premium">Patrocinador Autonómico / Premium (Consultar)</option>
+                  <option value="Otro / Consulta General">Otro / Consulta General</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="sponsor-message">Mensaje o Detalles del Anuncio</label>
+              <textarea id="sponsor-message" class="form-textarea" rows="2" placeholder="Indícanos si quieres promocionar un evento concreto, añadir tu WhatsApp comercial o solicitar presupuesto personalizado..."></textarea>
+            </div>
+
+            <div class="sponsor-actions-bar">
+              <button type="submit" id="btn-submit-sponsor" class="btn-primary btn-submit-sponsor">
+                <span>📨 Enviar Solicitud Comercial</span>
+              </button>
+
+              <div class="sponsor-direct-contacts">
+                <a href="https://wa.me/34600000000?text=Hola%20SportsLive%2C%20quiero%20informaci%C3%B3n%20sobre%20patrocinio%20y%20anuncios%20deportivos" 
+                   target="_blank" 
+                   rel="noopener noreferrer" 
+                   class="btn-sponsor-whatsapp" 
+                   onclick="event.stopPropagation()">
+                  <span>📲 Contactar por WhatsApp Comercial</span>
+                </a>
+                <a href="mailto:publicidad@sportslive.es?subject=Informacion%20Patrocinio%20SportsLive" 
+                   class="sponsor-email-link" 
+                   onclick="event.stopPropagation()">
+                  ✉️ publicidad@sportslive.es
+                </a>
+              </div>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  <!-- ==================== MODAL: INGESTA DE VÍDEOS ANTERIORES DE YOUTUBE ==================== -->
+  <div class="modal-overlay" id="admin-import-videos-modal" role="dialog" aria-modal="true" aria-labelledby="import-videos-modal-title">
+    <div class="modal-content" style="width: min(90vw, 680px); max-width: 680px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="import-videos-modal-title">📥 Ingesta de Vídeos Anteriores de YouTube</h3>
+          <span id="import-videos-club-subtitle" style="font-size: 0.85rem; color: #38bdf8;">Asociar vídeos anteriores al club</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeAdminImportVideosModal()" aria-label="Cerrar ventana">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-admin-import-video" onsubmit="handleAdminImportVideo(event)">
+          <input type="hidden" id="import-video-club-id" value="">
+          <input type="hidden" id="import-video-club-name" value="">
+
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="import-video-title">Título de la Emisión o Publicación *</label>
+            <input type="text" id="import-video-title" class="form-input" placeholder="Ej: Jornada 5: C.F. Fuenlabrada Juvenil A vs Rayo Vallecano" required>
+          </div>
+
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="import-video-url">Enlace del Vídeo de YouTube (completo, rueda de prensa, reel) *</label>
+            <input type="url" id="import-video-url" class="form-input" placeholder="https://www.youtube.com/watch?v=... o https://youtu.be/..." required>
+            <small style="color: #94a3b8; font-size: 0.75rem;">Se extraerá automáticamente la miniatura oficial y el iframe embebido seguro sin autoplay.</small>
+          </div>
+
+          <div class="form-row-2" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="import-video-content-type">Tipo de Contenido Clasificado</label>
+              <select id="import-video-content-type" class="form-select" onchange="onImportContentTypeChange(this.value)">
+                <option value="match_replay" selected>📼 Partido Completo en Diferido (Nivel 2)</option>
+                <option value="press">🎙️ Rueda de Prensa / Declaraciones 16:9 (Nivel 3)</option>
+                <option value="reel">⚡ Reel / Resumen de Jugadas 9:16 (Nivel 3)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="import-video-date">Fecha de Emisión / Publicación</label>
+              <input type="datetime-local" id="import-video-date" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="form-row-2" id="import-match-scores-row" style="margin-bottom: 1rem;">
+            <div class="filter-group">
+              <label for="import-video-home-score">Goles / Marcador Local</label>
+              <input type="number" id="import-video-home-score" class="form-input" placeholder="2" min="0">
+            </div>
+            <div class="filter-group">
+              <label for="import-video-away-score">Goles / Marcador Rival</label>
+              <input type="number" id="import-video-away-score" class="form-input" placeholder="1" min="0">
+            </div>
+          </div>
+
+          <div class="form-row-2" style="margin-bottom: 1.5rem;">
+            <div class="filter-group">
+              <label for="import-video-rival">Equipo Rival (opcional)</label>
+              <input type="text" id="import-video-rival" class="form-input" placeholder="Ej: Rayo Vallecano Juvenil">
+            </div>
+            <div class="filter-group">
+              <label for="import-video-duration">Duración Aproximada</label>
+              <input type="text" id="import-video-duration" class="form-input" placeholder="Ej: 93:20 o 08:45" value="90:00">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button type="button" class="btn-reset-filters" onclick="closeAdminImportVideosModal()">Cancelar</button>
+            <button type="submit" class="btn-upload">⚡ Registrar Vídeo en el Club</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== BARRA FLOTANTE INFERIOR PARA INVITADOS ==================== -->
+  <div class="guest-floating-bar" id="guest-floating-bar" style="display: none;" role="region" aria-label="Aviso de modo invitado">
+    <div class="guest-floating-bar-content">
+      <div class="guest-floating-icon">🌟</div>
+      <div class="guest-floating-text">
+        <span>Estás explorando SportsLive como invitado. Crea tu cuenta gratuita para seguir a tus clubes y comentar en directo.</span>
+      </div>
+      <div class="guest-floating-actions">
+        <button type="button" class="btn-guest-floating-register" onclick="openAuthModal('register')">
+          <span>Registrarse Gratis</span>
+        </button>
+        <button type="button" class="btn-guest-floating-close" onclick="dismissGuestFloatingBar()" title="Cerrar aviso" aria-label="Cerrar aviso">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE CAPTACIÓN / REGISTRO PARA INVITADOS ==================== -->
+  <div class="modal-overlay guest-lead-overlay" id="guest-lead-modal" role="dialog" aria-modal="true" aria-labelledby="guest-lead-modal-title">
+    <div class="modal-content guest-lead-modal-card">
+      <button type="button" class="btn-modal-close" onclick="closeGuestLeadModal()" aria-label="Cerrar modal">✕</button>
+      
+      <div class="guest-lead-hero">
+        <div class="guest-lead-icon-ring" id="guest-lead-icon-ring">
+          <span class="guest-lead-main-icon" id="guest-lead-icon">⭐</span>
+        </div>
+        <div class="guest-lead-badge-pill" id="guest-lead-badge-pill">ACCESO EXCLUSIVO</div>
+        <h3 class="guest-lead-title" id="guest-lead-modal-title">Guarda tus clubes favoritos y no te pierdas ningún partido creando tu cuenta gratuita</h3>
+        <p class="guest-lead-subtitle" id="guest-lead-subtitle">Únete gratis a la mayor comunidad de deporte en directo de España y personaliza tu experiencia.</p>
+      </div>
+
+      <div class="guest-lead-benefits">
+        <div class="guest-benefit-item">
+          <span class="benefit-icon">🔔</span>
+          <div class="benefit-text">
+            <strong>Alertas automáticas</strong>
+            <span>Avisos 10 minutos antes de comenzar cada retransmisión.</span>
+          </div>
+        </div>
+        <div class="guest-benefit-item">
+          <span class="benefit-icon">⭐</span>
+          <div class="benefit-text">
+            <strong>Tus clubes en portada</strong>
+            <span>Acceso directo a todos los directos y resúmenes de tus equipos.</span>
+          </div>
+        </div>
+        <div class="guest-benefit-item">
+          <span class="benefit-icon">💬</span>
+          <div class="benefit-text">
+            <strong>Muro de la Afición y Chat</strong>
+            <span>Comenta en vivo durante los partidos y apoya a tu equipo.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="guest-lead-actions">
+        <button type="button" class="btn-guest-lead-secondary" id="btn-guest-lead-login" onclick="closeGuestLeadModal(); openAuthModal('login');">
+          <span>👤 Iniciar Sesión</span>
+        </button>
+        <button type="button" class="btn-guest-lead-primary" id="btn-guest-lead-register" onclick="closeGuestLeadModal(); openAuthModal('register');">
+          <span>✨ Registrarse Gratis</span>
+        </button>
+      </div>
+
+      <div class="guest-lead-footer">
+        <button type="button" class="btn-guest-lead-dismiss" onclick="closeGuestLeadModal()">
+          <span>Continuar explorando en abierto</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/catalog.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

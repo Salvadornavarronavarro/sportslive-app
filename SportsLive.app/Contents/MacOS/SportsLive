@@ -1,0 +1,6 @@
+#!/bin/bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../../.." >/dev/null 2>&1 && pwd )"
+cd "$DIR"
+
+PYTHON_BIN="$(which python3 2>/dev/null || echo "/usr/bin/python3")"
+exec "$PYTHON_BIN" run.py

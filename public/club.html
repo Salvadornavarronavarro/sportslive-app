@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canal Oficial de Club - SportsLive</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cabinet+Grotesk:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/club.css">
+</head>
+<body class="dark-theme">
+
+  <!-- ==================== BARRA DE NAVEGACIÓN SUPERIOR ==================== -->
+  <header class="navbar-header" id="navbar-header">
+    <div class="nav-container">
+
+      <!-- Logotipo oficial de SportsLive -->
+      <a href="index.html" class="brand-logo" title="Volver a la portada de SportsLive">
+        <img src="logo.png" alt="SportsLive Logo" class="brand-logo-img">
+        <span class="brand-name">SportsLive</span>
+      </a>
+
+      <!-- Botonera superior de navegación -->
+      <nav class="capsule-nav-group">
+        <a href="index.html" class="capsule-btn" style="text-decoration: none; color: #f8fafc;" title="Ir a la portada principal">
+          <span>🏠</span> <span class="capsule-btn-text">PORTADA</span>
+        </a>
+
+        <a href="index.html#favorites-modal" onclick="window.location.href='index.html'; return false;" class="capsule-btn btn-favorites-capsule" title="Mis Favoritos">
+          <span>⭐</span> <span class="capsule-btn-text">MIS FAVORITOS</span>
+        </a>
+
+        <button type="button" class="capsule-btn btn-sponsor-capsule" onclick="openSponsorModal(event)" title="Publicidad y Patrocinio en SportsLive">
+          <span class="capsule-icon-sponsor">💼</span>
+          <span class="capsule-btn-text">ANÚNCIATE</span>
+        </button>
+
+        <!-- Zona de usuario / autenticación -->
+        <div class="header-right-zone" id="user-header-zone">
+          <button type="button" class="capsule-btn account-capsule-btn" onclick="window.location.href='index.html'" title="Acceso de usuarios">
+            <span class="account-icon">👤</span>
+            <span>MI CUENTA</span>
+          </button>
+        </div>
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- ==================== CONTENIDO PRINCIPAL ==================== -->
+  <main class="main-content" style="max-width: 1440px; margin: 0 auto; padding: 0 1.5rem;">
+
+    <!-- CABECERA OFICIAL DEL CLUB / CANAL FAVORITO -->
+    <section class="club-header-section">
+      <div class="club-hero-card">
+        
+        <div class="club-hero-main-row">
+          
+          <div class="club-hero-identity">
+            <div class="club-shield-wrapper" id="club-shield-container">
+              <div class="club-shield-fallback">🛡️</div>
+            </div>
+
+            <div class="club-title-info">
+              <div class="club-title-topline">
+                <span class="club-verified-badge" id="club-verified-badge">✓ Club Oficial Verificado</span>
+                <span class="club-meta-pill" id="club-meta-location">📍 Cargando sede...</span>
+              </div>
+              <h1 class="club-main-name" id="club-main-name">Cargando club oficial...</h1>
+              <div class="club-meta-badges-row">
+                <span id="club-meta-category">🏅 Deporte Base Oficial</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botones de acción oficial -->
+          <div class="club-hero-actions">
+            <button type="button" class="btn-club-follow" id="btn-club-follow" onclick="toggleFollowCurrentClub()" title="Seguir o dejar de seguir a este club">
+              <span>⭐</span> <span>Seguir Club</span>
+            </button>
+
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn-club-youtube" id="btn-club-youtube" title="Visitar canal oficial de YouTube">
+              <span>▶</span> <span>Canal de YouTube ↗</span>
+            </a>
+
+            <!-- Selector rápido para explorar otros clubes -->
+            <div class="club-selector-wrap">
+              <span>Club:</span>
+              <select class="club-selector-dropdown" id="club-quick-selector" onchange="onClubSelectorChange(event)" title="Cambiar de canal o club oficial">
+                <!-- Opciones inyectadas por JS -->
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        <p class="club-hero-description" id="club-description-text" style="color: #cbd5e1; font-size: 0.88rem; margin: 0; line-height: 1.45;">
+          Canal oficial del club en SportsLive con retransmisiones en directo, partidos completos, ruedas de prensa y los mejores reels.
+        </p>
+
+      </div>
+    </section>
+
+    <!-- ESTRUCTURA EN 2 COLUMNAS (75% / 25%) -->
+    <div class="club-content-layout">
+
+      <!-- COLUMNA PRINCIPAL (75%): NIVELES 1, 2 Y 3 -->
+      <div class="club-primary-column">
+
+        <!-- ==================== NIVEL 1: Directo Activo o Última Emisión ==================== -->
+        <section class="club-level-card" id="club-nivel-1-card">
+          <div class="level-section-header">
+            <div class="level-title-group">
+              <span class="level-badge-pill badge-live" id="nivel-1-status-badge">
+                <span class="live-dot-pulse-mini" style="display:inline-block; margin-right:4px;"></span> DIRECTO ACTIVO
+              </span>
+              <h3>Señal Principal de Retransmisión</h3>
+            </div>
+            <span style="font-size:0.78rem; color:#94a3b8;">Nivel 1 · Emisión Destacada</span>
+          </div>
+
+          <!-- Reproductor embebido grande 16:9 sin autoplay -->
+          <div class="club-video-embed-box" id="club-nivel-1-embed-box">
+            <div style="display:flex; align-items:center; justify-content:center; height:100%; color:#94a3b8;">
+              <div class="pulsing-dot" style="margin-right:0.75rem;"></div>
+              <span>Cargando señal del club...</span>
+            </div>
+          </div>
+
+          <!-- Marcador y ficha técnica de la emisión activa -->
+          <div class="club-featured-details">
+            <h2 class="club-featured-match-title" id="nivel-1-match-title">Jornada 4: C.D. Las Rozas Cadete A vs C.F. Pozuelo Cadete A</h2>
+            <div class="club-featured-teams-row" id="nivel-1-teams-row">
+              <!-- Equipos y marcador inyectados por JS -->
+            </div>
+            <div class="club-meta-badges-row" id="nivel-1-match-meta">
+              <!-- Fecha y sede -->
+            </div>
+          </div>
+
+          <!-- CHAT DE PARTIDO (DIRECTO) - Asociado a event_id (solo activo si status=LIVE) -->
+          <div class="match-live-chat-panel" id="match-live-chat-panel">
+            <!-- Rellenado dinámicamente por setupMatchLiveChat -->
+          </div>
+        </section>
+
+        <!-- ==================== NIVEL 2: Partidos Anteriores (Diferidos) ==================== -->
+        <section class="club-level-card" id="club-nivel-2-card">
+          <div class="level-section-header">
+            <div class="level-title-group">
+              <span style="font-size:1.3rem;">⚽</span>
+              <div>
+                <h3>Partidos Anteriores y Diferidos Completos</h3>
+                <span style="font-size:0.78rem; color:#94a3b8;">Nivel 2 · Partidos completos ya jugados con fecha y marcador final</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fila horizontal deslizable de tarjetas de partidos anteriores -->
+          <div class="club-scrollable-row" id="club-replays-scroll-row">
+            <!-- Tarjetas inyectadas por JS -->
+          </div>
+        </section>
+
+        <!-- ==================== NIVEL 3: Ruedas de Prensa (16:9) y Reels (9:16) ==================== -->
+        <section class="club-level-card" id="club-nivel-3-card">
+          <div class="level-section-header">
+            <div class="level-title-group">
+              <span style="font-size:1.3rem;">🎬</span>
+              <div>
+                <h3>Ruedas de Prensa, Declaraciones y Reels</h3>
+                <span style="font-size:0.78rem; color:#94a3b8;">Nivel 3 · Formato horizontal para previas y vertical 9:16 para mejores jugadas</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="club-level-3-split">
+            
+            <!-- Subsección A: Ruedas de Prensa y Previas (16:9) -->
+            <div class="press-subsection">
+              <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+                <span style="color:#38bdf8; font-weight:700; font-size:0.92rem;">🎙️ Ruedas de Prensa y Declaraciones (16:9)</span>
+              </div>
+              <div class="press-conferences-row" id="club-press-scroll-row">
+                <!-- Ruedas de prensa inyectadas por JS -->
+              </div>
+            </div>
+
+            <!-- Subsección B: Reels & Shorts (9:16 Vertical) -->
+            <div class="reels-subsection">
+              <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+                <span style="color:#f43f5e; font-weight:800; font-size:0.92rem;">⚡ Reels & Shorts: Mejores Jugadas y Momentos (9:16)</span>
+              </div>
+              <div class="reels-scrollable-row" id="club-reels-scroll-row">
+                <!-- Tarjetas verticales 9:16 inyectadas por JS -->
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+
+      <!-- COLUMNA LATERAL (25%): PANEL PERMANENTE CON CHAT DE COMUNIDAD -->
+      <aside class="club-community-sidebar">
+        
+        <!-- CHAT DE COMUNIDAD DEL CLUB (club_id) - Permanente y moderado -->
+        <div class="club-chat-card" id="club-community-chat-card">
+          
+          <div class="club-chat-header">
+            <div class="club-chat-header-title">
+              <h3 id="club-community-chat-header-title"><span>💬</span> Muro de la Afición</h3>
+              <span class="chat-online-badge">
+                <span class="chat-dot-online"></span>
+                <span>Chat Oficial</span>
+              </span>
+            </div>
+            <p class="club-chat-subtitle">
+              Espacio permanente de la afición. ¡Deja tus ánimos y comenta la actualidad del equipo en cualquier momento!
+            </p>
+          </div>
+
+          <!-- Mensajes de la comunidad con scroll hacia abajo -->
+          <div class="club-chat-messages-box" id="club-chat-messages-box" aria-live="polite">
+            <p style="color:#64748b; font-size:0.8rem; text-align:center;">Cargando mensajes de la comunidad...</p>
+          </div>
+
+          <!-- Entrada de texto con moderación activa y antispam -->
+          <div class="club-chat-input-zone">
+            <!-- Botones rápidos de ánimos -->
+            <div class="chat-quick-cheers">
+              <button type="button" class="btn-cheer-quick" onclick="appendQuickCheer('¡Vamos equipo! 💪')">¡Vamos! 💪</button>
+              <button type="button" class="btn-cheer-quick" onclick="appendQuickCheer('¡A por la victoria! ⚽🔥')">A por ellos ⚽</button>
+              <button type="button" class="btn-cheer-quick" onclick="appendQuickCheer('Orgullo de cantera 🔵⚪')">Orgullo 🔵⚪</button>
+            </div>
+
+            <form class="chat-form-row" onsubmit="handleSendCommunityMessage(event)">
+              <input type="text" class="chat-input-text" id="community-chat-input" placeholder="Escribe un mensaje de apoyo..." maxlength="300" required>
+              <button type="submit" class="btn-chat-send">Enviar</button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- FICHA TÉCNICA OFICIAL DEL CLUB -->
+        <div class="club-dossier-card">
+          <h4>🛡️ Datos Oficiales del Club</h4>
+          <div class="club-dossier-list" id="club-dossier-items">
+            <!-- Inyectado por JS -->
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </main>
+
+  <!-- ==================== MODAL DE REEL VERTICAL (9:16) ==================== -->
+  <div class="reel-modal-overlay" id="reel-modal-overlay" onclick="closeReelModal()">
+    <div class="reel-modal-container" onclick="event.stopPropagation()">
+      <button type="button" class="reel-modal-close-btn" onclick="closeReelModal()" title="Cerrar Reel">✕</button>
+      <div class="reel-modal-iframe-box" id="reel-modal-iframe-box">
+        <!-- Embebido inyectado por JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE PATROCINIO COMERCIAL ==================== -->
+  <div class="modal-backdrop" id="sponsor-modal" role="dialog" aria-modal="true" aria-labelledby="sponsor-modal-title">
+    <div class="modal-dialog modal-sponsor" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge-sponsor">💼 ESPACIOS DE PATROCINIO Y PUBLICIDAD</span>
+          <h2 id="sponsor-modal-title">Impulsa tu negocio con el Deporte Base</h2>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeSponsorModal()" aria-label="Cerrar modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color:#cbd5e1; font-size:0.9rem; margin-bottom:1.5rem;">
+          Conecta con miles de familias, aficionados y deportistas de tu localidad y comunidad autónoma a través de las retransmisiones oficiales de <strong>SportsLive</strong>.
+        </p>
+
+        <div style="display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; margin-top:1.5rem;">
+          <a href="https://wa.me/34600000000?text=Hola,%20quiero%20información%20sobre%20patrocinar%20un%20club%20en%20SportsLive" target="_blank" rel="noopener noreferrer" class="capsule-btn" style="background:#16a34a; border-color:#22c55e; color:#fff; text-decoration:none;">
+            <span>💬</span> <span>Contactar por WhatsApp Comercial</span>
+          </a>
+          <button type="button" class="capsule-btn" onclick="closeSponsorModal()">
+            <span>✓</span> <span>Cerrar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor flotante de notificaciones / toasts -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script src="js/club.js"></script>
+</body>
+</html>
