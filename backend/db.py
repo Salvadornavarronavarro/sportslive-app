@@ -968,46 +968,18 @@ def list_events(filters: dict = None):
                 base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
                 params.extend([term, term, term, term, term])
 
-        if is_portada:
-            query = f"""
-            SELECT * FROM (
-                SELECT e.*, 0 as rn_history
-                FROM events e
-                WHERE e.status = 'LIVE' AND {base_where}
-                UNION ALL
-                SELECT * FROM (
-                    SELECT e.*,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY COALESCE(e.club_id, e.club_name) 
-                               ORDER BY e.date_time DESC
-                           ) as rn_history
-                    FROM events e
-                    WHERE e.status != 'LIVE' AND {base_where}
-                ) WHERE rn_history <= ?
-            )
-            ORDER BY 
-              CASE status 
-                WHEN 'LIVE' THEN 1 
-                WHEN 'UPCOMING' THEN 2 
-                WHEN 'REPLAY' THEN 3 
-              END ASC,
-              CASE WHEN status = 'UPCOMING' THEN date_time END ASC,
-              CASE WHEN status IN ('LIVE', 'REPLAY') THEN date_time END DESC
-            """
-            cursor.execute(query, params + params + [limit_per_club])
-        else:
-            query = f"""
-            SELECT e.* FROM events e 
-            WHERE {base_where}
-            ORDER BY 
-              CASE e.status 
-                WHEN 'LIVE' THEN 1 
-                WHEN 'UPCOMING' THEN 2 
-                WHEN 'REPLAY' THEN 3 
-              END ASC,
-              CASE WHEN e.status = 'UPCOMING' THEN e.date_time END ASC,
-              CASE WHEN e.status IN ('LIVE', 'REPLAY') THEN e.date_time END DESC
-            """
+    query = f"""
+    SELECT e.* FROM events e
+    WHERE {base_where}
+    ORDER BY 
+        CASE e.status 
+            WHEN 'LIVE' THEN 1 
+            WHEN 'UPCOMING' THEN 2 
+            WHEN 'REPLAY' THEN 3 
+        END ASC,
+        e.date_time DESC
+    """
+    cursor.execute(query, params)
             cursor.execute(query, params)
 
         rows = [dict(row) for row in cursor.fetchall()]
