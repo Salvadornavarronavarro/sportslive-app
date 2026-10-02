@@ -922,8 +922,7 @@ def list_events(filters: dict = None):
             e.report_count < 5 
               AND e.title NOT LIKE '%Caso Borde%' 
               AND (e.home_team IS NULL OR e.home_team NOT LIKE '%Test Local%')
-              AND (e.club_id IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) 
-                   OR e.club_name IN (SELECT name FROM clubs WHERE is_active = 1 AND approved_by_admin = 1))
+              AND (e.club_id IS NOT NULL OR e.club_name IS NOT NULL)
         """
         params = []
 
