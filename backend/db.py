@@ -317,21 +317,11 @@ def init_db():
             """)
         conn.commit()
 
-  # Comprobar si las tablas existen antes de aplicar migraciones
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clubs';")
-    if cursor.fetchone():
-        cursor.execute("UPDATE events SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
-        cursor.execute("UPDATE clubs SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
-        cursor.execute("UPDATE events SET sport_name = 'Baloncesto' WHERE sport_name IN ('Baloncesto Base', 'Baloncesto Cantera');")
-        cursor.execute("UPDATE clubs SET sport_name = 'Baloncesto' WHERE sport_name IN ('Baloncesto Base', 'Baloncesto Cantera');")
-        cursor.execute("UPDATE events SET sport_name = 'Fútbol Sala' WHERE sport_name IN ('Fútbol Sala Base', 'Fútbol Sala Cantera');")
-        cursor.execute("UPDATE clubs SET sport_name = 'Fútbol Sala' WHERE sport_name IN ('Fútbol Sala Base', 'Fútbol Sala Cantera');")
-        cursor.execute("UPDATE events SET sport_name = 'Balonmano' WHERE sport_name IN ('Balonmano Base', 'Balonmano Cantera');")
-        cursor.execute("UPDATE clubs SET sport_name = 'Balonmano' WHERE sport_name IN ('Balonmano Base', 'Balonmano Cantera');")
-        cursor.execute("UPDATE events SET sport_name = TRIM(REPLACE(REPLACE(sport_name, ' Base', ''), ' Cantera', '')) WHERE sport_name LIKE '% Base' OR sport_name LIKE '% Cantera';")
-        cursor.execute("UPDATE clubs SET sport_name = TRIM(REPLACE(REPLACE(sport_name, ' Base', ''), ' Cantera', '')) WHERE sport_name LIKE '% Base' OR sport_name LIKE '% Cantera';")
-        cursor.execute("UPDATE events SET home_score = NULL, away_score = NULL WHERE status != 'LIVE';")
-        cursor.execute("UPDATE events SET away_team = '' WHERE away_team LIKE 'Rival de%' OR away_team = 'Cantera Oficial' OR away_team = '';")
+  conn.commit()
+
+    # Tabla oficial de clubes y canales
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS clubs (
         # Tabla oficial de clubes y canales
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS clubs (
