@@ -317,11 +317,7 @@ def init_db():
             """)
         conn.commit()
 
-  conn.commit()
-
-    # Tabla oficial de clubes y canales
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS clubs (
+  
         # Tabla oficial de clubes y canales
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS clubs (
