@@ -981,15 +981,15 @@ def list_events(filters: dict = None):
                 if sp in ("contacto", "boxeo_contacto", "boxeo", "mma", "kickboxing", "muay_thai"):
                     base_where += " AND (e.sport_id IN ('contacto', 'boxeo_contacto') OR e.sport_name LIKE '%Boxeo%' OR e.sport_name LIKE '%contacto%')"
                     if sp in ("boxeo", "mma", "kickboxing", "muay_thai"):
-                        base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.title) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ?)"
-                        params.extend([sp, f"%{sp}%", f"%{sp}%", f"%{sp}%", f"%{sp}%"])
+                        base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.title) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ? OR LOWER(e.sport_name) LIKE ?)"
+                        params.extend([sp, f"%{sp}%", f"%{sp}%", f"%{sp}%", f"%{sp}%", f"%{sp}%"])
                 else:
                     base_where += " AND e.sport_id = ?"
                     params.append(sp)
             if filters.get("category_id") and filters.get("category_id") != "all":
                 cat = filters["category_id"].strip().lower()
-                base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ?)"
-                params.extend([cat, f"%{cat}%", f"%{cat}%", f"%{cat}%"])
+                base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ? OR LOWER(e.sport_name) LIKE ? OR LOWER(e.title) LIKE ?)"
+                params.extend([cat, f"%{cat}%", f"%{cat}%", f"%{cat}%", f"%{cat}%", f"%{cat}%"])
             discipline = (filters.get("discipline") or filters.get("modality") or "").strip().lower()
             if discipline and discipline != "all":
                 base_where += " AND (e.category_id = ? OR LOWER(e.category_name) LIKE ? OR LOWER(e.discipline) LIKE ? OR LOWER(e.modality) LIKE ? OR LOWER(e.title) LIKE ?)"
@@ -1009,6 +1009,11 @@ def list_events(filters: dict = None):
                 else:
                     base_where += " AND (e.ccaa_id = ? OR LOWER(e.region) = ? OR LOWER(e.ccaa_name) = ? OR e.province_id = ?)"
                     params.extend([clean_ccaa, clean_ccaa, clean_ccaa, clean_ccaa])
+            club_filter = filters.get("club_id") or filters.get("club") or filters.get("club_name")
+            if club_filter and club_filter != "all":
+                c_clean = club_filter.strip().lower()
+                base_where += " AND (LOWER(e.club_id) = ? OR LOWER(e.club_name) = ? OR LOWER(e.club_name) LIKE ? OR LOWER(e.home_team) LIKE ?)"
+                params.extend([c_clean, c_clean, f"%{c_clean}%", f"%{c_clean}%"])
             if filters.get("search"):
                 term = f"%{filters['search'].strip()}%"
                 base_where += " AND (e.title LIKE ? OR e.home_team LIKE ? OR e.away_team LIKE ? OR e.club_name LIKE ? OR e.location_venue LIKE ?)"
@@ -1061,16 +1066,19 @@ def list_events(filters: dict = None):
     finally:
         conn.close()
 
-def get_event_by_id(event_id: str):
+def get_event_by_id(event_id: str, check_approved: bool = True):
     conn = get_db()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM events 
-            WHERE id = ? 
-              AND (club_id IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) 
-                   OR club_name IN (SELECT name FROM clubs WHERE is_active = 1 AND approved_by_admin = 1))
-        """, (event_id,))
+        if check_approved:
+            cursor.execute("""
+                SELECT * FROM events 
+                WHERE id = ? 
+                  AND (club_id IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) 
+                       OR club_name IN (SELECT name FROM clubs WHERE is_active = 1 AND approved_by_admin = 1))
+            """, (event_id,))
+        else:
+            cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
         row = cursor.fetchone()
         if row:
             try:
@@ -1233,7 +1241,7 @@ def create_event(data: dict, current_user: dict = None):
     finally:
         conn.close()
 
-    return get_event_by_id(event_id)
+    return get_event_by_id(event_id, check_approved=False)
 
 def update_event(event_id: str, data: dict, current_user: dict = None):
     conn = get_db()
@@ -1345,7 +1353,7 @@ def update_event(event_id: str, data: dict, current_user: dict = None):
     finally:
         conn.close()
 
-    return get_event_by_id(event_id)
+    return get_event_by_id(event_id, check_approved=False)
 
 def delete_event(event_id: str, current_user: dict = None):
     conn = get_db()
@@ -1378,14 +1386,21 @@ def delete_event(event_id: str, current_user: dict = None):
     finally:
         conn.close()
 
-def list_club_events(club_name: str):
+def list_club_events(club_identifier: str):
     conn = get_db()
     try:
         cursor = conn.cursor()
-        term = f"%{club_name.strip()}%"
+        clean = (club_identifier or "").strip()
+        clean_lower = clean.lower()
+        term = f"%{clean}%"
         cursor.execute("""
         SELECT * FROM events 
-        WHERE club_name LIKE ? OR home_team LIKE ? OR away_team LIKE ?
+        WHERE LOWER(club_id) = ? 
+           OR LOWER(club_name) = ?
+           OR club_name LIKE ? 
+           OR home_team LIKE ? 
+           OR away_team LIKE ?
+           OR club_id IN (SELECT id FROM clubs WHERE LOWER(id) = ? OR LOWER(name) = ? OR name LIKE ?)
         ORDER BY 
           CASE status 
             WHEN 'LIVE' THEN 1 
@@ -1393,7 +1408,7 @@ def list_club_events(club_name: str):
             WHEN 'REPLAY' THEN 3 
           END ASC,
           date_time DESC
-        """, (term, term, term))
+        """, (clean_lower, clean_lower, term, term, term, clean_lower, clean_lower, term))
         return [dict(r) for r in cursor.fetchall()]
     finally:
         conn.close()
@@ -1692,18 +1707,19 @@ def delete_user(user_id: str):
     finally:
         conn.close()
 
-def list_all_clubs():
-    """Obtiene la lista de clubes activos dados de alta y autorizados por el Administrador."""
+def list_all_clubs(include_inactive: bool = False):
+    """Obtiene la lista de clubes dados de alta. Si include_inactive=True (para admin), incluye inactivos o pendientes de aprobación."""
     conn = get_db()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
+        where_clause = "" if include_inactive else "WHERE c.is_active = 1 AND c.approved_by_admin = 1"
+        cursor.execute(f"""
             SELECT c.id, c.name, c.shield_url, c.shield_icon, c.location, c.province_id, c.province_name, 
                    c.ccaa_id, c.ccaa_name, c.category, c.sport_id, c.sport_name, c.sport_icon, c.channel_url, 
                    c.is_verified, c.description, c.is_active, c.approved_by_admin,
                    (SELECT COUNT(*) FROM events e WHERE (e.club_id = c.id OR e.club_name = c.name)) as events_count
             FROM clubs c
-            WHERE c.is_active = 1 AND c.approved_by_admin = 1
+            {where_clause}
             ORDER BY c.name ASC
         """)
         rows = cursor.fetchall()

@@ -84,7 +84,10 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
         return None
 
     def _read_json_body(self):
-        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0) or 0)
+        except (ValueError, TypeError):
+            content_length = 0
         if content_length <= 0:
             return {}
         post_data = self.rfile.read(content_length)
@@ -97,11 +100,12 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
+            clean_path = path.rstrip("/") if path != "/" else "/"
             query_params = urllib.parse.parse_qs(parsed.query)
             filters = {k: v[0] for k, v in query_params.items()}
 
             # 1. Sesión activa del usuario
-            if path == "/api/auth/me":
+            if clean_path == "/api/auth/me":
                 user = self._get_current_user()
                 self._set_cors_and_json(200)
                 if user:
@@ -111,7 +115,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 2. Partidos de mi club (para rol 'club' o 'admin')
-            if path == "/api/club/my-events":
+            if clean_path == "/api/club/my-events":
                 user = self._get_current_user()
                 if not user or user.get("role") not in ("club", "admin"):
                     self._set_cors_and_json(403)
@@ -126,7 +130,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 3. Administración: Listado de usuarios (solo admin)
-            if path == "/api/admin/users":
+            if clean_path == "/api/admin/users":
                 user = self._get_current_user()
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
@@ -138,19 +142,19 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4. Administración: Listado de clubes (solo admin)
-            if path == "/api/admin/clubs":
+            if clean_path == "/api/admin/clubs":
                 user = self._get_current_user()
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
                     self.wfile.write(json.dumps({"error": "Acceso restringido a administradores."}).encode("utf-8"))
                     return
-                clubs = list_all_clubs()
+                clubs = list_all_clubs(include_inactive=True)
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(clubs, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 4.0.b. Administración: Estado de sincronización RSS de canales (solo admin)
-            if path == "/api/admin/sync-channels":
+            if clean_path == "/api/admin/sync-channels":
                 user = self._get_current_user()
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
@@ -162,15 +166,15 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4.1. Listado público de clubes/canales oficiales (para favoritos)
-            if path == "/api/clubs":
+            if clean_path == "/api/clubs":
                 clubs = list_all_clubs()
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(clubs, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 4.1.b. Chat de comunidad permanente del club
-            if path.startswith("/api/clubs/") and path.endswith("/chat"):
-                parts = path.strip("/").split("/")
+            if clean_path.startswith("/api/clubs/") and clean_path.endswith("/chat"):
+                parts = clean_path.strip("/").split("/")
                 if len(parts) == 4:
                     club_id = urllib.parse.unquote(parts[2])
                     messages = get_club_community_messages(club_id)
@@ -179,8 +183,13 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     return
 
             # 4.1.c. Detalle y perfil oficial de un club/canal (incluye directos, partidos anteriores, prensa y reels)
-            if path.startswith("/api/clubs/"):
-                club_id = urllib.parse.unquote(path.split("/api/clubs/")[1])
+            if clean_path.startswith("/api/clubs/"):
+                club_id = urllib.parse.unquote(clean_path.split("/api/clubs/")[1])
+                if not club_id:
+                    clubs = list_all_clubs()
+                    self._set_cors_and_json(200)
+                    self.wfile.write(json.dumps(clubs, ensure_ascii=False).encode("utf-8"))
+                    return
                 club = get_club_by_id_or_name(club_id)
                 if club:
                     self._set_cors_and_json(200)
@@ -191,7 +200,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4.2. Clubes favoritos del usuario autenticado
-            if path == "/api/user/favorites":
+            if clean_path == "/api/user/favorites":
                 user = self._get_current_user()
                 favs = get_user_favorite_clubs(user["id"]) if user else []
                 self._set_cors_and_json(200)
@@ -199,10 +208,10 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 5. Listado de eventos público (con filtros en cascada y optimización para portada)
-            if path == "/api/events":
-                # Si no se pide el catálogo sin límites explícito (all=1 o admin=1),
+            if clean_path == "/api/events":
+                # Si no se pide el catálogo sin límites explícito (all=1 o admin=1) ni un club específico,
                 # se aplica por defecto la restricción de portada: directos prioritarios + últimos 5 vídeos históricos por club
-                if filters.get("all") not in ("1", "true") and filters.get("admin") not in ("1", "true"):
+                if filters.get("all") not in ("1", "true") and filters.get("admin") not in ("1", "true") and not filters.get("club_id") and not filters.get("club"):
                     filters.setdefault("portada", "1")
                 events = list_events(filters)
                 self._set_cors_and_json(200)
@@ -210,19 +219,21 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 5.1. Chat del evento en directo
-            if path.startswith("/api/events/") and path.endswith("/chat"):
-                parts = path.strip("/").split("/")
+            if clean_path.startswith("/api/events/") and clean_path.endswith("/chat"):
+                parts = clean_path.strip("/").split("/")
                 if len(parts) == 4:
-                    event_id = parts[2]
+                    event_id = urllib.parse.unquote(parts[2])
                     messages = get_event_chat_messages(event_id)
                     self._set_cors_and_json(200)
                     self.wfile.write(json.dumps(messages, ensure_ascii=False).encode("utf-8"))
                     return
 
             # 6. Detalle de un evento por ID
-            if path.startswith("/api/events/"):
-                event_id = path.split("/api/events/")[1]
-                event = get_event_by_id(event_id)
+            if clean_path.startswith("/api/events/"):
+                event_id = urllib.parse.unquote(clean_path.split("/api/events/")[1])
+                user = self._get_current_user()
+                check_approved = False if (user and user.get("role") == "admin") else True
+                event = get_event_by_id(event_id, check_approved=check_approved)
                 if event:
                     self._set_cors_and_json(200)
                     self.wfile.write(json.dumps(event, ensure_ascii=False).encode("utf-8"))
@@ -232,25 +243,25 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 7. Catálogos geográfico y deportivo
-            if path == "/api/geo":
+            if clean_path == "/api/geo":
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(CCAA_PROVINCIAS, ensure_ascii=False).encode("utf-8"))
                 return
 
-            if path == "/api/sports":
+            if clean_path == "/api/sports":
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(SPORTS_CATEGORIES, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 8. Estadísticas globales
-            if path == "/api/stats":
+            if clean_path == "/api/stats":
                 stats = get_stats()
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(stats, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 9. Solicitudes de Patrocinio Comercial (Leads)
-            if path == "/api/sponsors/leads":
+            if clean_path == "/api/sponsors/leads":
                 leads = list_sponsor_leads()
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(leads, ensure_ascii=False).encode("utf-8"))
@@ -277,10 +288,11 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
+            clean_path = path.rstrip("/") if path != "/" else "/"
             data = self._read_json_body()
 
             # 1. Login
-            if path == "/api/auth/login":
+            if clean_path == "/api/auth/login":
                 identity = data.get("identity") or data.get("username") or data.get("email")
                 password = data.get("password")
                 if not identity or not password:
@@ -298,7 +310,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 2. Registro público (Rol 1: Aficionado / Espectador o Rol 2: Club Verificado)
-            if path == "/api/auth/register":
+            if clean_path == "/api/auth/register":
                 username = data.get("username")
                 email = data.get("email")
                 password = data.get("password")
@@ -342,6 +354,20 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                         cif=cif,
                         location=location
                     )
+                    # Si es un club, asegurar que se da de alta en la tabla clubs si no existía
+                    if role == "club" and club_name:
+                        existing_club = get_club_by_id_or_name(club_name)
+                        if not existing_club:
+                            try:
+                                create_club({
+                                    "name": club_name.strip(),
+                                    "location": location or "España",
+                                    "user_id": new_user["id"],
+                                    "is_verified": 1
+                                })
+                            except Exception:
+                                pass
+
                     token = create_session(new_user["id"])
                     self._set_cors_and_json(201)
                     self.wfile.write(json.dumps({"success": True, "token": token, "user": new_user}, ensure_ascii=False).encode("utf-8"))
@@ -351,17 +377,27 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 3. Cierre de sesión
-            if path == "/api/auth/logout":
+            if clean_path == "/api/auth/logout":
                 auth_header = self.headers.get("Authorization", "")
+                token = ""
                 if auth_header.startswith("Bearer "):
                     token = auth_header.split(" ", 1)[1].strip()
+                if not token:
+                    cookie_header = self.headers.get("Cookie", "")
+                    if "session_token=" in cookie_header:
+                        for part in cookie_header.split(";"):
+                            part = part.strip()
+                            if part.startswith("session_token="):
+                                token = part.split("=", 1)[1]
+                                break
+                if token:
                     delete_session(token)
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
                 return
 
             # 3.1. Guardar favoritos de usuario autenticado
-            if path == "/api/user/favorites":
+            if clean_path == "/api/user/favorites":
                 user = self._get_current_user()
                 if not user:
                     self._set_cors_and_json(401)
@@ -376,7 +412,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4. Extracción de metadatos de vídeo
-            if path == "/api/metadata":
+            if clean_path == "/api/metadata":
                 url = data.get("url", "")
                 if not url:
                     self._set_cors_and_json(400)
@@ -388,10 +424,10 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4.1. Envío de mensaje al Chat del Evento en directo
-            if path.startswith("/api/events/") and path.endswith("/chat"):
-                parts = path.strip("/").split("/")
+            if clean_path.startswith("/api/events/") and clean_path.endswith("/chat"):
+                parts = clean_path.strip("/").split("/")
                 if len(parts) == 4:
-                    event_id = parts[2]
+                    event_id = urllib.parse.unquote(parts[2])
                     event = get_event_by_id(event_id)
                     if not event:
                         self._set_cors_and_json(404)
@@ -454,8 +490,8 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     return
 
             # 4.3. Chat de Comunidad del Club (permanente en la ficha del club)
-            if path.startswith("/api/clubs/") and path.endswith("/chat"):
-                parts = path.strip("/").split("/")
+            if clean_path.startswith("/api/clubs/") and clean_path.endswith("/chat"):
+                parts = clean_path.strip("/").split("/")
                 if len(parts) == 4:
                     club_id = urllib.parse.unquote(parts[2])
                     message_text = str(data.get("message", "")).strip()
@@ -508,8 +544,8 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     return
 
             # 4.4. Ingesta / Publicación de Vídeo clasificado en Canal de Club (live, match_replay, press, reel)
-            if path.startswith("/api/clubs/") and path.endswith("/videos"):
-                parts = path.strip("/").split("/")
+            if clean_path.startswith("/api/clubs/") and clean_path.endswith("/videos"):
+                parts = clean_path.strip("/").split("/")
                 if len(parts) == 4:
                     club_id = urllib.parse.unquote(parts[2])
                     club = get_club_by_id_or_name(club_id)
@@ -550,9 +586,9 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     return
 
             # 4.4.b. Ingesta de Historial de Vídeos de YouTube (partidos diferidos, prensa, reels)
-            if (path.startswith("/api/clubs/") and path.endswith("/import-history")) or \
-               (path.startswith("/api/admin/clubs/") and path.endswith("/import-videos")):
-                parts = path.strip("/").split("/")
+            if (clean_path.startswith("/api/clubs/") and clean_path.endswith("/import-history")) or \
+               (clean_path.startswith("/api/admin/clubs/") and clean_path.endswith("/import-videos")):
+                parts = clean_path.strip("/").split("/")
                 club_id = urllib.parse.unquote(parts[2] if parts[1] == "clubs" else parts[3])
                 club = get_club_by_id_or_name(club_id)
                 if not club:
@@ -579,7 +615,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4.5. Alta oficial de Club y Canal de YouTube (Admin / Registro)
-            if path in ("/api/admin/clubs", "/api/clubs"):
+            if clean_path in ("/api/admin/clubs", "/api/clubs"):
                 try:
                     created_club = create_club(data)
                     self._set_cors_and_json(201)
@@ -593,7 +629,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 4.6. Administración: Sincronización Manual de Canales RSS de YouTube (solo admin)
-            if path == "/api/admin/sync-channels":
+            if clean_path == "/api/admin/sync-channels":
                 user = self._get_current_user()
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
@@ -633,7 +669,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     return
 
             # 5. Creación de retransmisión (Panel de Club / Enviar Emisión)
-            if path == "/api/events":
+            if clean_path == "/api/events":
                 user = self._get_current_user()
 
                 # Si es un aficionado sin indicar nombre de club organizador
@@ -687,16 +723,16 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 6. Reportar emisión
-            if path.startswith("/api/events/") and path.endswith("/report"):
-                parts = path.split("/")
-                event_id = parts[3]
+            if clean_path.startswith("/api/events/") and clean_path.endswith("/report"):
+                parts = clean_path.split("/")
+                event_id = urllib.parse.unquote(parts[3])
                 res = report_event(event_id, data.get("reason", "Reporte comunitario"))
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(res).encode("utf-8"))
                 return
 
             # 7. Crear usuario desde panel de administración (solo admin)
-            if path == "/api/admin/users":
+            if clean_path == "/api/admin/users":
                 user = self._get_current_user()
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
@@ -724,14 +760,14 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 7.5. Toggle de verificación de club (solo admin)
-            if path.startswith("/api/admin/users/") and path.endswith("/verify"):
+            if clean_path.startswith("/api/admin/users/") and clean_path.endswith("/verify"):
                 user = self._get_current_user()
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
                     self.wfile.write(json.dumps({"error": "Solo administradores pueden verificar o revocar clubes."}).encode("utf-8"))
                     return
-                parts = path.split("/")
-                target_user_id = parts[4]
+                parts = clean_path.split("/")
+                target_user_id = urllib.parse.unquote(parts[4])
                 status_to_set = 1 if data.get("is_verified", True) else 0
                 updated = toggle_user_verification(target_user_id, status_to_set)
                 self._set_cors_and_json(200)
@@ -739,7 +775,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 8. Exportar paquete
-            if path == "/api/export":
+            if clean_path == "/api/export":
                 import zipfile
                 parent_dir = os.path.dirname(BASE_DIR)
                 compartir_dir = os.path.join(parent_dir, "compartir")
@@ -779,7 +815,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 11. Solicitudes de Patrocinio Comercial (Leads)
-            if path == "/api/sponsors/leads":
+            if clean_path == "/api/sponsors/leads":
                 company_name = str(data.get("company_name", "")).strip()
                 contact_info = str(data.get("contact_info", "")).strip()
                 if not company_name or not contact_info:
@@ -816,12 +852,13 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
+            clean_path = path.rstrip("/") if path != "/" else "/"
             data = self._read_json_body()
             user = self._get_current_user()
 
             # 1. Modificar un evento (Club o Admin)
-            if path.startswith("/api/events/"):
-                event_id = path.split("/api/events/")[1]
+            if clean_path.startswith("/api/events/"):
+                event_id = urllib.parse.unquote(clean_path.split("/api/events/")[1])
                 
                 # Re-extraer metadatos si cambió la URL del directo
                 url = data.get("url_original", "")
@@ -850,12 +887,12 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 2. Modificar un usuario (solo Admin)
-            if path.startswith("/api/admin/users/"):
+            if clean_path.startswith("/api/admin/users/"):
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
                     self.wfile.write(json.dumps({"error": "Solo administradores"}).encode("utf-8"))
                     return
-                user_id = path.split("/api/admin/users/")[1]
+                user_id = urllib.parse.unquote(clean_path.split("/api/admin/users/")[1])
                 try:
                     updated = update_user(user_id, data)
                     if updated:
@@ -879,11 +916,12 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
+            clean_path = path.rstrip("/") if path != "/" else "/"
             user = self._get_current_user()
 
             # 1. Eliminar un evento (Club o Admin)
-            if path.startswith("/api/events/"):
-                event_id = path.split("/api/events/")[1]
+            if clean_path.startswith("/api/events/"):
+                event_id = urllib.parse.unquote(clean_path.split("/api/events/")[1])
                 try:
                     deleted = delete_event(event_id, current_user=user)
                     if deleted:
@@ -901,25 +939,25 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 return
 
             # 2. Eliminar un usuario (solo Admin)
-            if path.startswith("/api/admin/users/"):
+            if clean_path.startswith("/api/admin/users/"):
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
                     self.wfile.write(json.dumps({"error": "Solo administradores"}).encode("utf-8"))
                     return
-                user_id = path.split("/api/admin/users/")[1]
+                user_id = urllib.parse.unquote(clean_path.split("/api/admin/users/")[1])
                 delete_user(user_id)
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
                 return
 
             # 3. Eliminar / Dar de baja un club (solo Admin)
-            if path.startswith("/api/admin/clubs/") or path.startswith("/api/clubs/"):
+            if clean_path.startswith("/api/admin/clubs/") or clean_path.startswith("/api/clubs/"):
                 if not user or user.get("role") != "admin":
                     self._set_cors_and_json(403)
                     self.wfile.write(json.dumps({"error": "Solo administradores"}).encode("utf-8"))
                     return
-                prefix = "/api/admin/clubs/" if path.startswith("/api/admin/clubs/") else "/api/clubs/"
-                club_id = urllib.parse.unquote(path.split(prefix)[1])
+                prefix = "/api/admin/clubs/" if clean_path.startswith("/api/admin/clubs/") else "/api/clubs/"
+                club_id = urllib.parse.unquote(clean_path.split(prefix)[1])
                 deleted = delete_club(club_id)
                 if deleted:
                     self._set_cors_and_json(200)

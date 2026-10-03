@@ -16,6 +16,8 @@ const state = {
   searchQuery: '',
   allEvents: [],
   events: [],
+  isFetchingEvents: false,
+  hasFetchedEvents: false,
   featuredEventId: null,
   favorites: [],
   favoriteClubs: [],
@@ -501,14 +503,14 @@ function initGeoSelector() {
     state.selectedCcaa = e.target.value;
     updateProvinceDropdown(state.selectedCcaa);
     state.selectedProvince = 'all';
-    fetchEvents();
+    applyFilters();
   });
 
   provSelect.addEventListener('change', (e) => {
     state.selectedProvince = e.target.value;
     localStorage.setItem('talentolive_user_province', state.selectedProvince);
     updateGeoButtonLabel();
-    fetchEvents();
+    applyFilters();
   });
 
   updateProvinceDropdown('all');
@@ -567,7 +569,7 @@ function initSportsSelector() {
           sportSelect.value = sport.id;
         }
         updateCategoryDropdown(state.selectedSport);
-        fetchEvents();
+        applyFilters();
       });
       chipsContainer.appendChild(chip);
     }
@@ -579,12 +581,12 @@ function initSportsSelector() {
       c.classList.toggle('active', c.dataset.sportId === state.selectedSport);
     });
     updateCategoryDropdown(state.selectedSport);
-    fetchEvents();
+    applyFilters();
   });
 
   catSelect.addEventListener('change', (e) => {
     state.selectedCategory = e.target.value;
-    fetchEvents();
+    applyFilters();
   });
 
   updateCategoryDropdown('all');
@@ -2042,7 +2044,25 @@ function updateFeaturedPlayer(filtered) {
     if (!state.featuredEventId && state.allEvents && state.allEvents.length > 0) {
       const validAll = state.allEvents.filter(e => !isTestResidualEvent(e));
       const defaultEvt = validAll.find(e => e.status === 'LIVE') || validAll[0] || state.allEvents[0];
-      loadFeaturedPlayer(defaultEvt);
+      if (defaultEvt) {
+        loadFeaturedPlayer(defaultEvt);
+        return;
+      }
+    }
+
+    // Si no hay partidos disponibles en ningún filtro:
+    state.featuredEventId = null;
+    wrapper.innerHTML = `
+      <div style="position: absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0f172a; color:#94a3b8; text-align:center; padding:2rem; z-index:1;">
+        <span style="font-size: 2.8rem; margin-bottom: 0.75rem;">📺</span>
+        <p style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.5rem;">No hay emisiones disponibles</p>
+        <p style="font-size: 0.88rem; color: #94a3b8; max-width: 420px; line-height:1.4;">Pronto se publicarán nuevos directos y contenidos oficiales de deporte base.</p>
+      </div>
+    `;
+    const info = document.getElementById('featured-player-info') || document.querySelector('.match-info');
+    if (info) {
+      info.innerHTML = '';
+      info.style.display = 'none';
     }
   }
 }
@@ -2073,7 +2093,18 @@ function updateFeaturedSidebar(filtered) {
 
 function applyFilters() {
   if (!state.allEvents || state.allEvents.length === 0) {
-    fetchEvents();
+    if (!state.hasFetchedEvents && !state.isFetchingEvents) {
+      fetchEvents();
+      return;
+    }
+    state.events = [];
+    const countEl = document.getElementById('matches-header-count');
+    if (countEl) countEl.textContent = '0 retransmisiones';
+    updateFilterButtonsVisual();
+    updateFeaturedPlayer([]);
+    updateFeaturedSidebar([]);
+    renderEvents([]);
+    updateActiveFilterIndicator();
     return;
   }
 
@@ -2406,6 +2437,7 @@ function loadFeaturedPlayer(evt) {
     info.style.marginTop = '12px';
     info.style.clear = 'both';
     info.style.zIndex = '2';
+    info.style.display = 'block';
     const isLive = evt.status === 'LIVE';
     const tagHtml = isLive
       ? `<span class="featured-live-tag"><span class="live-dot"></span> EN VIVO</span>`
@@ -3044,7 +3076,7 @@ function initTabs() {
       tabBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.currentTab = btn.dataset.tab;
-      fetchEvents();
+      applyFilters();
     });
   });
 
@@ -3068,7 +3100,7 @@ function initTabs() {
       localStorage.removeItem('talentolive_user_province');
       localStorage.removeItem('grada_user_province');
       updateGeoButtonLabel();
-      fetchEvents();
+      applyFilters();
       showToast('Filtros restablecidos');
     });
   }
@@ -3083,7 +3115,7 @@ function initSearch() {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
       state.searchQuery = e.target.value.trim();
-      fetchEvents();
+      applyFilters();
     }, 300);
   });
 }
@@ -3112,8 +3144,13 @@ async function fetchStats() {
   }
 }
 
-async function fetchEvents() {
+async function fetchEvents(force = false) {
+  if (state.isFetchingEvents && !force) return;
+  state.isFetchingEvents = true;
+
   const grid = document.getElementById('matches-grid');
+  const countEl = document.getElementById('matches-header-count');
+
   if (grid && (!state.allEvents || state.allEvents.length === 0)) {
     grid.innerHTML = `
       <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
@@ -3121,9 +3158,16 @@ async function fetchEvents() {
         <p style="color: var(--text-muted);">Cargando retransmisiones...</p>
       </div>
     `;
+    if (countEl) countEl.textContent = 'Cargando eventos...';
   }
 
   try {
+    if (!state.allClubs || state.allClubs.length === 0) {
+      try {
+        await fetchClubs();
+      } catch (_) {}
+    }
+
     const res = await fetch('/api/events?portada=1');
     if (!res.ok) {
       const errText = await res.text();
@@ -3134,11 +3178,12 @@ async function fetchEvents() {
       Array.isArray(events) ? events.map(sanitizeEventSportAndClubData) : [],
       5
     );
-    updateSportsSelectorVisibility();
-    applyFilters();
+    state.hasFetchedEvents = true;
   } catch (err) {
     console.error('Error al cargar partidos desde el servidor:', err);
-    if (grid) {
+    state.hasFetchedEvents = true;
+    if (grid && (!state.allEvents || state.allEvents.length === 0)) {
+      if (countEl) countEl.textContent = '0 retransmisiones';
       if (window.location.protocol === 'file:') {
         grid.innerHTML = `
           <div class="empty-state">
@@ -3153,13 +3198,18 @@ async function fetchEvents() {
             <div class="empty-icon">⚠️</div>
             <h3>No se pudieron cargar los partidos</h3>
             <p>Por favor comprueba que el servidor de SportsLive esté en ejecución en <strong>http://localhost:3000</strong>.</p>
-            <button class="btn-upload" style="margin: 1rem auto 0;" onclick="fetchEvents()">🔄 Reintentar conexión</button>
+            <button class="btn-upload" style="margin: 1rem auto 0;" onclick="fetchEvents(true)">🔄 Reintentar conexión</button>
           </div>
         `;
       }
     }
+  } finally {
+    state.isFetchingEvents = false;
+    updateSportsSelectorVisibility();
+    applyFilters();
   }
 }
+window.fetchEvents = fetchEvents;
 
 function renderEvents(events) {
   const grid = document.getElementById('matches-grid');
@@ -3813,7 +3863,7 @@ function detectUserLocation() {
           localStorage.setItem('talentolive_user_province', detected);
           updateGeoButtonLabel();
           syncCcaaFromProvince(detected);
-          fetchEvents();
+          applyFilters();
           showToast(`Ubicación detectada: ${getProvinceName(detected)}`);
         }
       },
@@ -3911,7 +3961,7 @@ function selectProvinceFromModal(provId) {
   if (provSelect) provSelect.value = provId;
 
   closeGeoModal();
-  fetchEvents();
+  applyFilters();
   showToast(`Región fijada: ${getProvinceName(provId)}`);
 }
 
@@ -4500,9 +4550,6 @@ async function doLogin(identity, password) {
     updateChatVisibility();
     applyFilters();
     showToast(`¡Sesión iniciada con éxito! Conectado como ${data.user.full_name || data.user.username}`, 'success');
-
-    // Refrescar partidos para actualizar botones de edición permitidos
-    fetchEvents();
   } catch (err) {
     if (errBox) {
       errBox.textContent = err.message;
@@ -4589,7 +4636,6 @@ async function handleRegisterSubmit(e) {
     } else {
       showToast(`¡Bienvenido a SportsLive, ${data.user.full_name || data.user.username}! Cuenta de aficionado creada.`, 'success');
     }
-    fetchEvents();
   } catch (err) {
     if (errBox) {
       errBox.textContent = err.message;
@@ -4666,7 +4712,6 @@ async function logout() {
   updateGuestFloatingBar();
   updateChatVisibility();
   applyFilters();
-  fetchEvents();
   showToast('Sesión cerrada correctamente. Modo espectador activo.', 'info');
 }
 
