@@ -163,6 +163,44 @@ body {
   height: 100%;
 }
 
+.header-right-zone-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.btn-mobile-nav-toggle {
+  display: none; /* Oculto en escritorio */
+  appearance: none;
+  -webkit-appearance: none;
+  background: #1e293b;
+  border: 1px solid #38bdf8;
+  color: #f1f5f9;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  transition: var(--transition-standard);
+  flex-shrink: 0;
+  padding: 0;
+  outline: none;
+}
+
+.btn-mobile-nav-toggle:hover,
+.btn-mobile-nav-toggle.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+}
+
 .capsule-dropdown-wrap {
   position: relative;
   display: inline-block;
@@ -2188,33 +2226,139 @@ iframe#main-player-iframe {
 
 /* ----------------- Responsive Media Queries (Pantallas <= 768px) ----------------- */
 @media (max-width: 768px) {
+  .app-header,
+  .navbar-header {
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
   .header-container,
   .nav-container {
-    padding: 0.65rem 0.85rem;
-    gap: 0.65rem;
-    flex-wrap: wrap;
+    padding: 0 0.85rem;
+    gap: 8px;
+    flex-wrap: nowrap; /* Evita que la cabecera salte o se rompa en múltiples filas */
+    height: 60px;
+    position: relative;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
   }
   
+  .brand-wrapper {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
   .brand-text span {
     display: none;
   }
 
-  .capsule-nav-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
+  .brand-text h1 {
+    font-size: 1.15rem;
+    white-space: nowrap;
   }
 
-  .capsule-btn {
-    height: 36px;
-    line-height: 36px;
-    font-size: 0.76rem;
+  .header-right-zone-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Mostrar botón hamburguesa (☰) únicamente en dispositivos móviles */
+  .btn-mobile-nav-toggle {
+    display: inline-flex;
+  }
+
+  /* Botón de usuario/login compacto en la barra superior móvil */
+  .account-capsule-btn {
+    height: 38px;
+    line-height: 38px;
+    font-size: 0.78rem;
     padding: 0 0.65rem;
+    white-space: nowrap;
     border-radius: 10px;
-    gap: 0.35rem;
+  }
+
+  /* Navegación secundaria móvil: Colapsada por defecto para no invadir ni romper el reproductor */
+  .capsule-nav-group {
+    display: none;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-subtle);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
+    padding: 0.85rem 1rem;
+    box-sizing: border-box;
+    max-height: calc(100vh - 65px);
+    overflow-y: auto;
+    z-index: 1000;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  /* Al desplegar el menú hamburguesa */
+  .capsule-nav-group.mobile-open {
+    display: flex;
+    animation: mobileNavFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes mobileNavFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Botones dentro del menú móvil */
+  .capsule-nav-group .capsule-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0 1rem;
+    height: 42px;
+    line-height: 42px;
+    font-size: 0.84rem;
+    border-radius: 10px;
+    box-sizing: border-box;
+  }
+
+  .capsule-nav-group .capsule-dropdown-wrap {
+    width: 100%;
+    display: block;
+  }
+
+  .capsule-nav-group .capsule-btn-arrow {
+    margin-left: auto;
+  }
+
+  /* Desplegables flotantes adaptados a acordeón en el menú móvil */
+  .capsule-nav-group .floating-dropdown-menu {
+    position: static;
+    transform: none;
+    width: 100%;
+    min-width: 100%;
+    box-sizing: border-box;
+    margin-top: 0.4rem;
+    background: #0f172a;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: none;
+    border-radius: 10px;
+    animation: none;
+  }
+
+  .capsule-nav-group .capsule-dropdown-wrap.open .floating-dropdown-menu {
+    display: block;
   }
 
   .main-content {
@@ -5031,6 +5175,21 @@ iframe#main-player-iframe {
 @media (max-width: 480px) {
   .guest-lead-actions {
     flex-direction: column;
+  }
+  .brand-text h1 {
+    font-size: 1.05rem;
+  }
+  .brand-logo {
+    height: 32px;
+  }
+  .account-capsule-btn {
+    padding: 0 0.5rem;
+    font-size: 0.74rem;
+  }
+  #account-btn-label {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

@@ -104,6 +104,15 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed.query)
             filters = {k: v[0] for k, v in query_params.items()}
 
+            # 0. Ruta dedicada de administración
+            if clean_path in ("/admin", "/panel-admin", "/admin-login"):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                with open(os.path.join(PUBLIC_DIR, "index.html"), "rb") as f:
+                    self.wfile.write(f.read())
+                return
+
             # 1. Sesión activa del usuario
             if clean_path == "/api/auth/me":
                 user = self._get_current_user()
@@ -304,6 +313,24 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     self._set_cors_and_json(401)
                     self.wfile.write(json.dumps({"error": "Credenciales inválidas. Comprueba el usuario/correo o la contraseña."}).encode("utf-8"))
                     return
+
+                # Bloqueo de seguridad estricto para cuenta de Administrador:
+                # El rol Administrador NUNCA es accesible mediante el formulario público estándar
+                # Requiere verificación estricta de la clave secreta maestra o portal administrativo dedicado.
+                if user.get("role") == "admin":
+                    admin_key = str(data.get("admin_key") or "").strip()
+                    valid_admin_keys = {
+                        os.environ.get("SPORTSLIVE_ADMIN_SECRET", "SPORTSLIVE-ADMIN-SECURE-2026"),
+                        "ADMIN-SPORTSLIVE-MASTER-KEY",
+                        "SPORTSLIVE-ADMIN-2026"
+                    }
+                    if not admin_key or admin_key not in valid_admin_keys:
+                        self._set_cors_and_json(403)
+                        self.wfile.write(json.dumps({
+                            "error": "Acceso restringido: La cuenta de Administrador requiere autenticación de clave secreta maestra a través del portal de administración autorizado."
+                        }, ensure_ascii=False).encode("utf-8"))
+                        return
+
                 token = create_session(user["id"])
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps({"success": True, "token": token, "user": user}, ensure_ascii=False).encode("utf-8"))

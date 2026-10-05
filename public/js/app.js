@@ -622,6 +622,42 @@ function updateCategoryDropdown(sportId, targetSelectId = 'filter-category') {
    1.5. NAVEGACIÓN CÁPSULA Y MENÚS DESPLEGABLES FLOTANTES
    ========================================================== */
 
+function toggleMobileNav(e) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  const nav = document.getElementById('capsule-nav-group');
+  const btn = document.getElementById('btn-mobile-nav-toggle');
+  const icon = document.getElementById('hamburger-icon');
+  if (!nav) return;
+  const isOpen = nav.classList.contains('mobile-open');
+  if (isOpen) {
+    closeMobileNav();
+  } else {
+    nav.classList.add('mobile-open');
+    if (btn) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+    if (icon) icon.textContent = '✕';
+  }
+}
+window.toggleMobileNav = toggleMobileNav;
+
+function closeMobileNav() {
+  const nav = document.getElementById('capsule-nav-group');
+  const btn = document.getElementById('btn-mobile-nav-toggle');
+  const icon = document.getElementById('hamburger-icon');
+  if (nav) nav.classList.remove('mobile-open');
+  if (btn) {
+    btn.classList.remove('active');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  if (icon) icon.textContent = '☰';
+}
+window.closeMobileNav = closeMobileNav;
+
 function initCapsuleDropdowns() {
   // Manejo delegado de clics para desplegables estáticos y dinámicos (cabecera, usuario, etc.)
   document.addEventListener('click', (e) => {
@@ -644,12 +680,24 @@ function initCapsuleDropdowns() {
     if (!e.target.closest('.capsule-dropdown-wrap')) {
       closeAllCapsuleDropdowns();
     }
+    // Cerrar navegación móvil si se hace clic fuera del header
+    if (!e.target.closest('.app-header')) {
+      closeMobileNav();
+    }
   });
 
   // Cerrar con Escape
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeAllCapsuleDropdowns();
+      closeMobileNav();
+    }
+  });
+
+  // En pantallas de escritorio, cerrar menú colapsable móvil
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      closeMobileNav();
     }
   });
 
@@ -1263,6 +1311,10 @@ function handleFavoritesClick(event) {
   if (event) {
     if (typeof event.preventDefault === 'function') event.preventDefault();
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  }
+
+  if (typeof closeMobileNav === 'function') {
+    closeMobileNav();
   }
 
   const authenticated = isSportsLiveAuthenticated();
@@ -2274,6 +2326,7 @@ function selectSportFilter(sportId, discipline = 'all', event = null) {
   state.selectedDiscipline = discipline || 'all';
   state.selectedCategory = (discipline && discipline !== 'all') ? discipline : 'all';
   closeAllCapsuleDropdowns();
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   updateFilterButtonsVisual();
   applyFilters();
 }
@@ -2296,6 +2349,7 @@ function toggleSportSubmenu(sportId, e) {
 function selectDirectosFilter(filterType) {
   state.directosFilter = filterType || 'all';
   closeAllCapsuleDropdowns();
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   applyFilters();
 }
 
@@ -2303,6 +2357,7 @@ function selectGeoCcaa(ccaaId) {
   state.selectedCcaa = ccaaId || 'all';
   state.selectedProvince = 'all';
   closeAllCapsuleDropdowns();
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   updateFilterButtonsVisual();
   if (typeof filterMatches === 'function') {
     filterMatches();
@@ -4289,15 +4344,24 @@ async function initAuthSession() {
     updateGuestFloatingBar();
     updateChatVisibility();
     renderDiscoveryBanner();
+    const isPathAdmin = window.location.pathname === '/admin' || window.location.pathname.endsWith('/admin');
+    const isHashAdmin = window.location.hash === '#admin' || window.location.hash === '#admin-login' || window.location.hash === '#admin-modal';
+    const isQueryAdmin = new URLSearchParams(window.location.search).get('open_admin') === '1' || new URLSearchParams(window.location.search).get('admin') === '1' || new URLSearchParams(window.location.search).get('portal') === 'admin';
+
     if (state.currentUser && state.currentUser.role === 'admin') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('open_admin') === '1' || window.location.hash === '#admin-modal') {
+      if (isQueryAdmin || isHashAdmin || isPathAdmin) {
         openAdminModal();
-        if (params.get('open_admin') === '1') {
+        if (new URLSearchParams(window.location.search).get('open_admin') === '1') {
           const cleanUrl = window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
         }
       }
+    } else if (isPathAdmin || isHashAdmin || isQueryAdmin) {
+      openAdminLoginModal();
+    } else if (window.location.hash === '#login' || window.location.hash === '#auth' || window.location.hash === '#auth-modal' || new URLSearchParams(window.location.search).get('auth') === 'login') {
+      openAuthModal('login');
+    } else if (window.location.hash === '#register' || new URLSearchParams(window.location.search).get('auth') === 'register') {
+      openAuthModal('register');
     }
   }
 }
@@ -4313,7 +4377,7 @@ function renderUserHeader() {
     container.innerHTML = `
       <button type="button" class="capsule-btn account-capsule-btn btn-header-auth-prominent" id="btn-header-login" onclick="openAuthModal()" title="Iniciar Sesión o Registrarse en SportsLive">
         <span class="account-icon">👤</span>
-        <span id="account-btn-label">Iniciar Sesión / Registrarse</span>
+        <span id="account-btn-label">Iniciar Sesión</span>
       </button>
     `;
     return;
@@ -4402,6 +4466,7 @@ function renderUserHeader() {
 }
 
 function openAuthModal(defaultTab = 'login') {
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   const modal = document.getElementById('auth-modal');
   if (modal) {
     modal.classList.add('active');
@@ -4423,6 +4488,21 @@ function closeAuthModal() {
     document.body.style.overflow = '';
   }
 }
+
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === '#admin-login' || window.location.hash === '#admin') {
+    const u = (typeof getSportsLiveUser === 'function') ? getSportsLiveUser() : (state.currentUser);
+    if (u && u.role === 'admin') {
+      if (typeof openAdminModal === 'function') openAdminModal();
+    } else {
+      if (typeof openAdminLoginModal === 'function') openAdminLoginModal();
+    }
+  } else if (window.location.hash === '#login' || window.location.hash === '#auth' || window.location.hash === '#auth-modal') {
+    openAuthModal('login');
+  } else if (window.location.hash === '#register') {
+    openAuthModal('register');
+  }
+});
 
 function switchAuthTab(tab) {
   const btnLogin = document.getElementById('btn-tab-login');
@@ -4503,11 +4583,98 @@ function requestClubKeyInfo(e) {
 }
 window.requestClubKeyInfo = requestClubKeyInfo;
 
-function fillAndLogin(identity, password) {
-  document.getElementById('login-identity').value = identity;
-  document.getElementById('login-password').value = password;
-  doLogin(identity, password);
+function openAdminLoginModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  closeAuthModal();
+  if (typeof closeMobileNav === 'function') closeMobileNav();
+  const modal = document.getElementById('admin-login-modal');
+  if (modal) {
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    const errBox = document.getElementById('admin-login-error');
+    if (errBox) errBox.style.display = 'none';
+    const identInput = document.getElementById('admin-login-identity');
+    if (identInput) setTimeout(() => identInput.focus(), 100);
+  }
 }
+window.openAdminLoginModal = openAdminLoginModal;
+
+function closeAdminLoginModal() {
+  const modal = document.getElementById('admin-login-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+window.closeAdminLoginModal = closeAdminLoginModal;
+
+async function handleAdminLoginSubmit(e) {
+  e.preventDefault();
+  const errBox = document.getElementById('admin-login-error');
+  if (errBox) errBox.style.display = 'none';
+
+  const identity = (document.getElementById('admin-login-identity')?.value || '').trim();
+  const password = document.getElementById('admin-login-password')?.value || '';
+  const adminKey = (document.getElementById('admin-login-key')?.value || '').trim();
+
+  if (!identity || !password || !adminKey) {
+    if (errBox) {
+      errBox.textContent = 'Debes completar el usuario, la contraseña y la clave secreta maestra de administración.';
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity, password, admin_key: adminKey })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Credenciales o clave de administración no válidas');
+    }
+
+    if (!data.user || data.user.role !== 'admin') {
+      throw new Error('Esta cuenta no dispone de permisos de Administrador.');
+    }
+
+    state.token = data.token;
+    state.currentUser = data.user;
+    localStorage.setItem('talentolive_auth_token', data.token);
+    localStorage.setItem('sportslive_auth_token', data.token);
+    localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
+
+    loadUserFavorites();
+    await syncUserFavorites();
+
+    renderUserHeader();
+    updateFilterButtonsVisual();
+    updateActiveFilterIndicator();
+    closeAdminLoginModal();
+    updateGuestFloatingBar();
+    updateChatVisibility();
+    applyFilters();
+
+    showToast(`👑 ¡Autenticación de Administrador completada! Bienvenido, ${data.user.full_name || 'Admin'}`, 'success');
+    if (typeof openAdminModal === 'function') {
+      openAdminModal();
+    }
+  } catch (err) {
+    if (errBox) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    } else {
+      showToast(err.message, 'error');
+    }
+  }
+}
+window.handleAdminLoginSubmit = handleAdminLoginSubmit;
 
 async function handleLoginSubmit(e) {
   e.preventDefault();

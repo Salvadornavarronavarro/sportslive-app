@@ -102,8 +102,8 @@
         </div>
       </div>
 
-      <!-- Barra de navegación principal (Orden estricto de izquierda a derecha tras el logo) -->
-      <nav class="capsule-nav-group" aria-label="Navegación principal">
+      <!-- Barra de navegación secundaria (colapsable en móvil en menú hamburguesa ☰) -->
+      <nav class="capsule-nav-group" id="capsule-nav-group" aria-label="Navegación secundaria">
         
         <!-- 1. [ ⭐ MIS FAVORITOS ] -->
         <button type="button" class="capsule-btn btn-favorites-capsule nav-favorites-btn" id="btn-header-favorites" data-id="btn-favorites" onclick="handleFavoritesClick(event)" title="Canales y Equipos Favoritos">
@@ -212,15 +212,22 @@
           <span class="capsule-btn-text">ANÚNCIATE</span>
         </button>
 
-        <!-- 7. [ 👤 INICIAR SESIÓN / REGISTRARSE ] -->
+      </nav>
+
+      <!-- Zona de control fija a la derecha: Botón de Usuario/Login + Botón Hamburguesa Móvil (☰) -->
+      <div class="header-right-zone-group" id="header-right-zone-group">
         <div class="header-right-zone" id="user-header-zone">
           <button type="button" class="capsule-btn account-capsule-btn btn-header-auth-prominent" id="btn-header-login" onclick="openAuthModal()" title="Acceso de usuarios, aficionados y panel de club">
             <span class="account-icon">👤</span>
-            <span id="account-btn-label">Iniciar Sesión / Registrarse</span>
+            <span id="account-btn-label">Iniciar Sesión</span>
           </button>
         </div>
 
-      </nav>
+        <!-- Botón Hamburguesa solo visible en móvil (<= 768px) -->
+        <button type="button" class="btn-mobile-nav-toggle" id="btn-mobile-nav-toggle" aria-label="Abrir menú de navegación" aria-expanded="false" onclick="toggleMobileNav(event)">
+          <span class="hamburger-icon" id="hamburger-icon">☰</span>
+        </button>
+      </div>
 
     </div>
   </header>
@@ -773,7 +780,7 @@
       <div class="modal-header">
         <div>
           <h3 class="modal-title" id="auth-modal-title">Acceso y Registro de Usuarios</h3>
-          <span style="font-size: 0.82rem; color: #94a3b8;">Gestión de perfiles (Aficionado, Club Verificado y Administrador)</span>
+          <span style="font-size: 0.82rem; color: #94a3b8;">Introduce tus credenciales para acceder a la plataforma</span>
         </div>
         <button class="btn-close-modal" onclick="closeAuthModal()" aria-label="Cerrar modal">&times;</button>
       </div>
@@ -797,7 +804,7 @@
               type="text" 
               id="login-identity" 
               class="form-input" 
-              placeholder="ej: admin, cf_intercity, aficionado o tu correo" 
+              placeholder="Introduce tu correo electrónico o nombre de usuario" 
               required
               autocomplete="username"
             >
@@ -820,25 +827,6 @@
           <button type="submit" class="btn-upload" style="width: 100%; justify-content: center; padding: 0.75rem;">
             Entrar a la Plataforma
           </button>
-
-          <!-- Acceso rápido de prueba para los 3 niveles / roles solicitados -->
-          <div class="quick-login-box">
-            <span class="quick-login-title">⚡ Acceso Rápido de Demostración (1 Clic por Rol):</span>
-            <div class="quick-login-buttons">
-              <button type="button" class="btn-quick-role role-admin" onclick="fillAndLogin('admin', 'admin123')">
-                <span class="role-icon">👑</span>
-                <span class="role-desc"><strong>Administrador General (Rol 3)</strong><small>Aprobar clubes, editar eventos y control total</small></span>
-              </button>
-              <button type="button" class="btn-quick-role role-club" onclick="fillAndLogin('cf_intercity', 'club123')">
-                <span class="role-icon">🛡️</span>
-                <span class="role-desc"><strong>Club CF Intercity (Club Verificado - Rol 2)</strong><small>Acceso directo a su Panel de Emisión de streaming</small></span>
-              </button>
-              <button type="button" class="btn-quick-role role-viewer" onclick="fillAndLogin('aficionado', 'user123')">
-                <span class="role-icon">👤</span>
-                <span class="role-desc"><strong>Aficionado / Espectador (Rol 1)</strong><small>Ver eventos, guardar favoritos y filtrar deportes</small></span>
-              </button>
-            </div>
-          </div>
         </form>
 
         <!-- FORMULARIO 2: CREAR CUENTA (CON SELECTOR DE NIVEL / ROL) -->
@@ -925,6 +913,51 @@
           </button>
         </form>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE ACCESO RESTRINGIDO ADMINISTRACIÓN ==================== -->
+  <div class="modal-overlay" id="admin-login-modal" role="dialog" aria-modal="true" aria-labelledby="admin-login-title">
+    <div class="modal-content" style="width: min(90vw, 480px); max-height: 90vh; overflow-y: auto; border: 1px solid rgba(245, 158, 11, 0.45); box-shadow: 0 20px 50px rgba(0,0,0,0.85), 0 0 25px rgba(245, 158, 11, 0.2);">
+      <div class="modal-header" style="border-bottom-color: rgba(245, 158, 11, 0.25);">
+        <div>
+          <h3 class="modal-title" id="admin-login-title" style="color: #fbbf24; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🔒</span> <span>Portal de Administración</span>
+          </h3>
+          <span style="font-size: 0.82rem; color: #94a3b8;">Acceso seguro restringido con verificación de clave maestra</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeAdminLoginModal()" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: #fde68a;">
+          ⚠️ <strong>Área Restringida:</strong> Se requiere verificación de usuario, contraseña y la clave secreta maestra de administrador.
+        </div>
+
+        <form id="form-admin-login" onsubmit="handleAdminLoginSubmit(event)">
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="admin-login-identity">Usuario Administrador</label>
+            <input type="text" id="admin-login-identity" class="form-input" placeholder="Usuario administrador" required autocomplete="username">
+          </div>
+
+          <div class="filter-group" style="margin-bottom: 1rem;">
+            <label for="admin-login-password">Contraseña</label>
+            <input type="password" id="admin-login-password" class="form-input" placeholder="Contraseña de administrador" required autocomplete="current-password">
+          </div>
+
+          <div class="filter-group" style="margin-bottom: 1.25rem;">
+            <label for="admin-login-key" style="color: #fbbf24; font-weight: 700;">
+              🔑 Clave Secreta Maestra de Administración
+            </label>
+            <input type="password" id="admin-login-key" class="form-input" placeholder="Introduce la clave secreta de administrador" required style="border-color: rgba(245, 158, 11, 0.5);">
+          </div>
+
+          <div id="admin-login-error" class="auth-error-msg" style="display: none; margin-bottom: 1rem;"></div>
+
+          <button type="submit" class="btn-upload" style="width: 100%; justify-content: center; padding: 0.8rem; background: linear-gradient(135deg, #d97706 0%, #b45309 100%); border-color: #fbbf24; color: white;">
+            Verificar y Acceder a Administración
+          </button>
+        </form>
       </div>
     </div>
   </div>
@@ -1514,6 +1547,8 @@
 
       </div>
     </div>
+  </div>
+
   <!-- ==================== MODAL: INGESTA DE VÍDEOS ANTERIORES DE YOUTUBE ==================== -->
   <div class="modal-overlay" id="admin-import-videos-modal" role="dialog" aria-modal="true" aria-labelledby="import-videos-modal-title">
     <div class="modal-content" style="width: min(90vw, 680px); max-width: 680px; max-height: 90vh; overflow-y: auto;">
@@ -1656,6 +1691,15 @@
       </div>
     </div>
   </div>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="app-footer" style="padding: 2.5rem 1rem 1.75rem; text-align: center; border-top: 1px solid var(--border-subtle); margin-top: 3.5rem; color: #64748b; font-size: 0.8rem;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 0.85rem; flex-wrap: wrap;">
+      <span>SportsLive © 2026 • Deporte Base y Amateur en Vivo</span>
+      <span>•</span>
+      <a href="#admin-login" onclick="openAdminLoginModal(event)" style="color: #475569; text-decoration: none; font-size: 0.75rem; transition: color 0.2s;" onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'" title="Acceso restringido">🔒 Administración</a>
+    </div>
+  </footer>
 
   <!-- Scripts -->
   <script src="js/catalog.js"></script>
