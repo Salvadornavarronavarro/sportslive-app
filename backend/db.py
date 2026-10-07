@@ -235,13 +235,24 @@ def get_db():
                     try:
                         cursor = conn.cursor()
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
-                        if not cursor.fetchone():
+                        has_events_tbl = cursor.fetchone()
+                        needs_init = False
+                        if not has_events_tbl:
+                            needs_init = True
+                        else:
+                            cursor.execute("SELECT count(*) FROM events;")
+                            cnt_ev = cursor.fetchone()
+                            if not cnt_ev or cnt_ev[0] == 0:
+                                needs_init = True
+
+                        if needs_init:
                             _initializing = True
                             init_db()
                             _initializing = False
                         else:
                             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")
                             if not cursor.fetchone():
+
                                 cursor.execute("""
                                 CREATE TABLE IF NOT EXISTS favorites (
                                     id TEXT PRIMARY KEY,
@@ -287,13 +298,24 @@ def get_db():
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
-            if not cursor.fetchone():
+            has_events_tbl = cursor.fetchone()
+            needs_init = False
+            if not has_events_tbl:
+                needs_init = True
+            else:
+                cursor.execute("SELECT count(*) FROM events;")
+                cnt_ev = cursor.fetchone()
+                if not cnt_ev or cnt_ev[0] == 0:
+                    needs_init = True
+
+            if needs_init:
                 _initializing = True
                 init_db()
                 _initializing = False
             else:
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")
                 if not cursor.fetchone():
+
                     cursor.execute("""
                     CREATE TABLE IF NOT EXISTS favorites (
                         id TEXT PRIMARY KEY,
@@ -360,6 +382,17 @@ def _run_init_schema(conn):
             cursor.execute("ALTER TABLE events ADD COLUMN modality TEXT DEFAULT '';")
         if "discipline" not in cols:
             cursor.execute("ALTER TABLE events ADD COLUMN discipline TEXT DEFAULT '';")
+        if "content_type" not in cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN content_type TEXT DEFAULT 'live';")
+        if "club_id" not in cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN club_id TEXT;")
+        if "channel_url" not in cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN channel_url TEXT DEFAULT '';")
+        if "duration" not in cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN duration TEXT DEFAULT '';")
+        if "region" not in cols:
+            cursor.execute("ALTER TABLE events ADD COLUMN region TEXT DEFAULT '';")
+
 
         # Tabla de usuarios con 3 roles (aficionado/viewer, club, admin) y verificación
         cursor.execute("""
@@ -555,24 +588,14 @@ def _run_init_schema(conn):
         conn.commit()
 
         # Sembrar mensajes iniciales de prueba si está vacía
-        cursor.execute("SELECT COUNT(*) FROM chat_messages;")
-        if cursor.fetchone()[0] == 0:
-            seed_sample_chat_messages(cursor)
-            conn.commit()
+        try:
+            cursor.execute("SELECT COUNT(*) FROM chat_messages;")
+            if cursor.fetchone()[0] == 0:
+                seed_sample_chat_messages(cursor)
+                conn.commit()
+        except Exception:
+            pass
 
-        # Migración segura: campos de canal, duración y tipo de contenido en events
-        cursor.execute("PRAGMA table_info(events);")
-        ev_cols = [row[1] for row in cursor.fetchall()]
-        if "content_type" not in ev_cols:
-            cursor.execute("ALTER TABLE events ADD COLUMN content_type TEXT DEFAULT 'live';")
-        if "club_id" not in ev_cols:
-            cursor.execute("ALTER TABLE events ADD COLUMN club_id TEXT;")
-        if "channel_url" not in ev_cols:
-            cursor.execute("ALTER TABLE events ADD COLUMN channel_url TEXT DEFAULT '';")
-        if "duration" not in ev_cols:
-            cursor.execute("ALTER TABLE events ADD COLUMN duration TEXT DEFAULT '';")
-        if "region" not in ev_cols:
-            cursor.execute("ALTER TABLE events ADD COLUMN region TEXT DEFAULT '';")
 
         # Asegurar consistencia de datos de región y datos específicos de la Comunidad Valenciana
         cursor.execute("UPDATE events SET region = ccaa_name WHERE (region IS NULL OR region = '') AND ccaa_name IS NOT NULL;")
@@ -828,7 +851,7 @@ def seed_default_production_clubs(cursor):
 
 def seed_events_from_local_if_empty(cursor):
     """Si la tabla events está vacía (ej. nueva BD en Turso), inicializa los eventos desde data/default_events.json o base de datos local."""
-    cursor.execute("SELECT COUNT(*) FROM events WHERE club_id IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1);")
+    cursor.execute("SELECT COUNT(*) FROM events;")
     count = cursor.fetchone()[0]
     if count == 0:
         events_to_seed = []
@@ -861,7 +884,8 @@ def seed_events_from_local_if_empty(cursor):
             cols = list(ev.keys())
             placeholders = ", ".join(["?"] * len(cols))
             col_names = ", ".join(cols)
-            cursor.execute(f"INSERT OR IGNORE INTO events ({col_names}) VALUES ({placeholders})", list(ev.values()))
+            cursor.execute(f"INSERT OR REPLACE INTO events ({col_names}) VALUES ({placeholders})", list(ev.values()))
+
 
 
 def seed_sample_events(cursor):
@@ -1298,10 +1322,22 @@ def list_events(filters: dict = None):
     conn = get_db()
     try:
         cursor = conn.cursor()
+
+        # Auto-recuperación garantizada: Si la tabla de eventos está vacía, sembrar de inmediato
+        try:
+            cursor.execute("SELECT COUNT(*) FROM events;")
+            cnt_row = cursor.fetchone()
+            if not cnt_row or cnt_row[0] == 0:
+                seed_default_production_clubs(cursor)
+                seed_events_from_local_if_empty(cursor)
+                conn.commit()
+        except Exception:
+            pass
         
         # Determinar si se aplica la restricción de portada (Directos prioritarios + últimos 5 vídeos históricos por club)
         is_portada = False
         limit_per_club = 5
+
         if filters:
             if filters.get("limit_per_club"):
                 try:
@@ -2192,11 +2228,18 @@ def seed_sample_chat_messages(cursor):
         ("evt-4", "Futsal Puro", "Vaya jugada ensayada a balón parado ⚽🔥", "viewer", "2026-09-14T12:50:30")
     ]
     for ev_id, u_name, msg, role, dt in sample_msgs:
-        m_id = f"msg-{uuid.uuid4().hex[:10]}"
-        cursor.execute("""
-        INSERT INTO chat_messages (id, event_id, user_id, user_name, user_role, message, created_at)
-        VALUES (?, ?, NULL, ?, ?, ?, ?)
-        """, (m_id, ev_id, u_name, role, msg, dt))
+        try:
+            cursor.execute("SELECT id FROM events WHERE id = ?", (ev_id,))
+            if not cursor.fetchone():
+                continue
+            m_id = f"msg-{uuid.uuid4().hex[:10]}"
+            cursor.execute("""
+            INSERT INTO chat_messages (id, event_id, user_id, user_name, user_role, message, created_at)
+            VALUES (?, ?, NULL, ?, ?, ?, ?)
+            """, (m_id, ev_id, u_name, role, msg, dt))
+        except Exception:
+            pass
+
 
 
 def get_event_chat_messages(event_id: str, limit: int = 60) -> list:
