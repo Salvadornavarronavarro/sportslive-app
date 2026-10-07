@@ -25,6 +25,7 @@ from backend.db import (
     authenticate_user, create_session, get_user_by_session, delete_session,
     list_users, get_user_by_id, create_user, update_user, delete_user,
     toggle_user_verification, get_user_favorite_clubs, save_user_favorite_clubs,
+    get_user_favorite_events, save_user_favorite_events,
     get_event_chat_messages, create_chat_message,
     create_sponsor_lead, list_sponsor_leads,
     get_club_by_id_or_name, get_club_community_messages, create_club_community_message,
@@ -208,13 +209,18 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Club o canal no encontrado"}, ensure_ascii=False).encode("utf-8"))
                 return
 
-            # 4.2. Clubes favoritos del usuario autenticado
+            # 4.2. Clubes y eventos favoritos del usuario autenticado
             if clean_path == "/api/user/favorites":
                 user = self._get_current_user()
-                favs = get_user_favorite_clubs(user["id"]) if user else []
+                fav_clubs = get_user_favorite_clubs(user["id"]) if user else []
+                fav_events = get_user_favorite_events(user["id"]) if user else []
                 self._set_cors_and_json(200)
-                self.wfile.write(json.dumps({"favorite_clubs": favs}, ensure_ascii=False).encode("utf-8"))
+                self.wfile.write(json.dumps({
+                    "favorite_clubs": fav_clubs,
+                    "favorite_events": fav_events
+                }, ensure_ascii=False).encode("utf-8"))
                 return
+
 
             # 5. Listado de eventos público (con filtros en cascada y optimización para portada)
             if clean_path == "/api/events":
@@ -430,13 +436,19 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     self._set_cors_and_json(401)
                     self.wfile.write(json.dumps({"error": "Debes iniciar sesión para sincronizar tus favoritos en la cuenta."}).encode("utf-8"))
                     return
-                clubs = data.get("favorite_clubs", [])
-                if not isinstance(clubs, list):
-                    clubs = []
-                save_user_favorite_clubs(user["id"], clubs)
+                resp_payload = {"success": True}
+                if "favorite_clubs" in data and isinstance(data["favorite_clubs"], list):
+                    clubs = data["favorite_clubs"]
+                    save_user_favorite_clubs(user["id"], clubs)
+                    resp_payload["favorite_clubs"] = clubs
+                if "favorite_events" in data and isinstance(data["favorite_events"], list):
+                    events = data["favorite_events"]
+                    save_user_favorite_events(user["id"], events)
+                    resp_payload["favorite_events"] = events
                 self._set_cors_and_json(200)
-                self.wfile.write(json.dumps({"success": True, "favorite_clubs": clubs}, ensure_ascii=False).encode("utf-8"))
+                self.wfile.write(json.dumps(resp_payload, ensure_ascii=False).encode("utf-8"))
                 return
+
 
             # 4. Extracción de metadatos de vídeo
             if clean_path == "/api/metadata":

@@ -369,9 +369,13 @@ function updateFollowButtonState() {
 async function toggleFollowCurrentClub() {
   if (!clubState.currentClub) return;
   if (!clubState.currentUser) {
-    showToast('Inicia sesión para seguir a este club y recibir alertas.', 'info');
+    showToast('Identifícate para seguir a este club y guardar tus preferencias.', 'info');
+    setTimeout(() => {
+      window.location.href = 'index.html?auth=login';
+    }, 1000);
     return;
   }
+
   const clubName = clubState.currentClub.name;
   let list = [];
   try {

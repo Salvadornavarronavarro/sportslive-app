@@ -168,6 +168,17 @@ function saveUserFavorites(type = 'both') {
     const matchesKey = 'favorites_' + user.id;
     const matchesData = JSON.stringify(state.favorites || []);
     localStorage.setItem(matchesKey, matchesData);
+
+    // Persistir eventos favoritos en backend si el usuario tiene sesión activa
+    if (state.token) {
+      try {
+        fetch('/api/user/favorites', {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ favorite_events: state.favorites || [] })
+        }).catch(() => {});
+      } catch (_) {}
+    }
   }
 
   if (type === 'clubs' || type === 'both') {
@@ -178,7 +189,7 @@ function saveUserFavorites(type = 'both') {
     localStorage.setItem(clubsKey, clubsData);
     localStorage.setItem(clubsLegacyKey, clubsData);
 
-    // Persistir en backend SQLite si el usuario tiene sesión activa
+    // Persistir en backend SQLite / Turso libSQL si el usuario tiene sesión activa
     if (state.token) {
       try {
         fetch('/api/user/favorites', {
@@ -190,6 +201,7 @@ function saveUserFavorites(type = 'both') {
     }
   }
 }
+
 
 // Cargar favoritos iniciales según la sesión activa o invitado
 loadUserFavorites();
@@ -224,20 +236,21 @@ function openGuestLeadModal(triggerReason = 'favorites', contextData = '') {
     const club = contextData ? String(contextData).trim() : 'tus clubes';
     if (iconEl) iconEl.textContent = '⭐';
     if (badgeEl) badgeEl.textContent = `SEGUIR A ${club.toUpperCase()}`;
-    if (titleEl) titleEl.textContent = 'Guarda tus clubes favoritos y no te pierdas ningún partido creando tu cuenta gratuita';
-    if (subEl) subEl.textContent = `Sigue a ${club} para tener acceso directo a todas sus emisiones, resúmenes y alertas exclusivas.`;
+    if (titleEl) titleEl.textContent = `Identifícate para seguir a ${club} y guardar tus preferencias`;
+    if (subEl) subEl.textContent = `Inicia sesión o crea tu cuenta gratuita para seguir a ${club}, guardar sus partidos en tus favoritos y recibir alertas de sus retransmisiones.`;
   } else if (triggerReason === 'notifications') {
     if (iconEl) iconEl.textContent = '🔔';
     if (badgeEl) badgeEl.textContent = 'ALERTAS Y RECORDATORIOS';
-    if (titleEl) titleEl.textContent = 'Guarda tus clubes favoritos y no te pierdas ningún partido creando tu cuenta gratuita';
-    if (subEl) subEl.textContent = 'Activa alertas automáticas 10 minutos antes de cada partido para no perderte ni un solo minuto de juego.';
+    if (titleEl) titleEl.textContent = 'Identifícate para guardar alertas y partidos favoritos';
+    if (subEl) subEl.textContent = 'Inicia sesión o crea tu cuenta gratuita para activar avisos automáticos 10 minutos antes de cada partido.';
   } else {
     // favorites (por defecto)
     if (iconEl) iconEl.textContent = '⭐';
     if (badgeEl) badgeEl.textContent = 'MIS FAVORITOS';
-    if (titleEl) titleEl.textContent = 'Guarda tus clubes favoritos y no te pierdas ningún partido creando tu cuenta gratuita';
-    if (subEl) subEl.textContent = 'Personaliza tu cartelera, sigue a tus clubes preferidos y recibe avisos de sus retransmisiones.';
+    if (titleEl) titleEl.textContent = 'Identifícate para guardar tus favoritos y personalizar tu cartelera';
+    if (subEl) subEl.textContent = 'Inicia sesión o crea tu cuenta gratuita para guardar tus partidos y clubes preferidos, sincronizar tus preferencias y no perderte ninguna retransmisión.';
   }
+
 
   modal.classList.add('active');
   modal.style.display = 'flex';
@@ -1913,6 +1926,7 @@ async function syncUserFavorites() {
     });
     if (res.ok) {
       const data = await res.json();
+      let changed = false;
       if (Array.isArray(data.favorite_clubs)) {
         if (data.favorite_clubs.length > 0) {
           state.favoriteClubs = data.favorite_clubs;
@@ -1923,6 +1937,21 @@ async function syncUserFavorites() {
           state.favoriteClubs = [];
           saveUserFavorites('clubs');
         }
+        changed = true;
+      }
+      if (Array.isArray(data.favorite_events)) {
+        if (data.favorite_events.length > 0) {
+          state.favorites = data.favorite_events;
+          saveUserFavorites('matches');
+        } else if (state.favorites.length > 0) {
+          saveUserFavorites('matches');
+        } else {
+          state.favorites = [];
+          saveUserFavorites('matches');
+        }
+        changed = true;
+      }
+      if (changed) {
         updateFilterButtonsVisual();
         applyFilters();
       }
@@ -1931,6 +1960,7 @@ async function syncUserFavorites() {
     console.warn('Error syncing user favorites:', err);
   }
 }
+
 
 function updateFilterButtonsVisual() {
   // 1. Botón DEPORTES
@@ -4136,11 +4166,12 @@ function showInAppMatchAlert(evt, title, body) {
 function toggleFavorite(eventId, event, fromModal = false) {
   if (event) event.stopPropagation();
 
-  // Bloqueo de captación: Si es un visitante no autenticado, mostrar modal de registro
+  // Bloqueo de captación: Si es un visitante no autenticado, mostrar modal de registro/login
   if (!isSportsLiveAuthenticated()) {
-    openGuestLeadModal('notifications');
+    openGuestLeadModal('favorites');
     return;
   }
+
 
   const idx = state.favorites.indexOf(eventId);
   let isNowFav = false;

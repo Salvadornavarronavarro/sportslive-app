@@ -16,6 +16,7 @@ from backend.metadata import extract_metadata_from_url
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "talentolive.db")
 LEGACY_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "grada_directo.db")
+DEFAULT_EVENTS_JSON_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "default_events.json")
 
 try:
     import libsql_client
@@ -581,65 +582,8 @@ def _run_init_schema(conn):
         WHERE id = 'evt-5';
         """)
 
-        cursor.execute("SELECT COUNT(*) FROM events WHERE id = 'evt-elche-villarreal-juv';")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute("""
-            INSERT INTO events (
-                id, title, url_original, platform, embed_id, embed_url, thumbnail,
-                status, date_time, sport_id, sport_name, sport_icon,
-                category_id, category_name, ccaa_id, ccaa_name, region,
-                province_id, province_name, home_team, away_team,
-                home_score, away_score, location_venue, is_verified_club,
-                club_name, sponsor_name, sponsor_logo, sponsor_url,
-                report_count, views_count, created_at, created_by_user_id,
-                content_type, club_id, channel_url, duration
-            ) VALUES (
-                'evt-elche-villarreal-juv',
-                'Liga Nacional Juvenil: Elche C.F. Juvenil A vs Villarreal C.F.',
-                'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
-                'youtube',
-                'aqz-KE-bpKQ',
-                'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ?autoplay=0&modestbranding=1&rel=0',
-                'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=60',
-                'LIVE',
-                '2026-09-14T18:00:00',
-                'futbol',
-                'Fútbol',
-                '⚽',
-                'juvenil',
-                'Juvenil',
-                'comunidad-valenciana',
-                'Comunidad Valenciana',
-                'Comunidad Valenciana',
-                'alicante',
-                'Alicante',
-                'Elche C.F. Juvenil A',
-                'Villarreal C.F.',
-                1,
-                0,
-                'Campo Diego Quiles - Ciudad Deportiva Juan Ángel Romero (Elche)',
-                1,
-                'Cantera Franjiverde',
-                'Calzados Elche Artesanos',
-                '👞',
-                'https://calzadoselche.es',
-                0,
-                280,
-                '2026-09-14T12:00:00',
-                'usr-admin-1',
-                'live',
-                'club-elche-base',
-                'https://www.youtube.com/@elchecf',
-                ''
-            );
-            """)
-        else:
-            cursor.execute("""
-            UPDATE events 
-            SET region = 'Comunidad Valenciana', ccaa_id = 'comunidad-valenciana', ccaa_name = 'Comunidad Valenciana', province_id = 'alicante', province_name = 'Alicante'
-            WHERE id = 'evt-elche-villarreal-juv';
-            """)
         conn.commit()
+
 
         # Unificación y migración global: sustituir 'Fútbol Base' por 'Fútbol' en events y clubs
         cursor.execute("UPDATE events SET sport_name = 'Fútbol' WHERE sport_name IN ('Fútbol Base', 'Fútbol Femenino Base');")
@@ -883,23 +827,42 @@ def seed_default_production_clubs(cursor):
             """, cl)
 
 def seed_events_from_local_if_empty(cursor):
-    """Si la tabla events está vacía (ej. nueva BD en Turso) pero existe talentolive.db localmente, migra los eventos existentes."""
-    cursor.execute("SELECT COUNT(*) FROM events WHERE id != 'evt-elche-villarreal-juv';")
-    if cursor.fetchone()[0] == 0 and os.path.exists(DB_PATH):
-        try:
-            local_conn = sqlite3.connect(DB_PATH)
-            local_conn.row_factory = sqlite3.Row
-            l_cur = local_conn.cursor()
-            l_cur.execute("SELECT * FROM events")
-            local_events = [dict(r) for r in l_cur.fetchall()]
-            local_conn.close()
-            for ev in local_events:
-                cols = list(ev.keys())
-                placeholders = ", ".join(["?"] * len(cols))
-                col_names = ", ".join(cols)
-                cursor.execute(f"INSERT OR IGNORE INTO events ({col_names}) VALUES ({placeholders})", list(ev.values()))
-        except Exception:
-            pass
+    """Si la tabla events está vacía (ej. nueva BD en Turso), inicializa los eventos desde data/default_events.json o base de datos local."""
+    cursor.execute("SELECT COUNT(*) FROM events WHERE club_id IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1);")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        events_to_seed = []
+        # 1. Prioridad: cargar eventos predeterminados desde JSON (garantizado en entornos remotos y Render)
+        if os.path.exists(DEFAULT_EVENTS_JSON_PATH):
+            try:
+                with open(DEFAULT_EVENTS_JSON_PATH, "r", encoding="utf-8") as f:
+                    events_to_seed = json.load(f)
+            except Exception as e:
+                print(f"[Seed Warning] Error al leer default_events.json: {e}")
+
+        # 2. Si no se cargaron del JSON, intentar leer de base de datos local si existe
+        if not events_to_seed:
+            for candidate_db in (DB_PATH, LEGACY_DB_PATH):
+                if os.path.exists(candidate_db):
+                    try:
+                        local_conn = sqlite3.connect(candidate_db)
+                        local_conn.row_factory = sqlite3.Row
+                        l_cur = local_conn.cursor()
+                        l_cur.execute("SELECT * FROM events")
+                        events_to_seed = [dict(r) for r in l_cur.fetchall()]
+                        local_conn.close()
+                        if events_to_seed:
+                            break
+                    except Exception:
+                        pass
+
+        # 3. Insertar eventos en la tabla
+        for ev in events_to_seed:
+            cols = list(ev.keys())
+            placeholders = ", ".join(["?"] * len(cols))
+            col_names = ", ".join(cols)
+            cursor.execute(f"INSERT OR IGNORE INTO events ({col_names}) VALUES ({placeholders})", list(ev.values()))
+
 
 def seed_sample_events(cursor):
     sample_events = [
@@ -2157,10 +2120,10 @@ def save_user_favorite_clubs(user_id: str, clubs: list) -> bool:
 
         # Mantener sincronizada la tabla relacional favorites
         try:
-            cursor.execute("DELETE FROM favorites WHERE user_id = ? AND (club_id IS NOT NULL OR event_id IS NULL)", (user_id,))
+            cursor.execute("DELETE FROM favorites WHERE user_id = ? AND club_id IS NOT NULL AND club_id != ''", (user_id,))
             now_iso = datetime.datetime.now().isoformat()
             for club_id in clubs_clean:
-                fav_id = f"fav-{user_id}-{club_id}"
+                fav_id = f"fav-club-{user_id}-{club_id}"
                 cursor.execute(
                     "INSERT OR REPLACE INTO favorites (id, user_id, club_id, created_at) VALUES (?, ?, ?, ?)",
                     (fav_id, user_id, club_id, now_iso)
@@ -2171,6 +2134,42 @@ def save_user_favorite_clubs(user_id: str, clubs: list) -> bool:
         return True
     finally:
         conn.close()
+
+def get_user_favorite_events(user_id: str) -> list:
+    """Obtiene la lista de IDs de eventos favoritos de un usuario desde la tabla favorites."""
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT event_id FROM favorites WHERE user_id = ? AND event_id IS NOT NULL AND event_id != ''", (user_id,))
+        rows = cursor.fetchall()
+        return [r[0] for r in rows if r[0]]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+def save_user_favorite_events(user_id: str, events: list) -> bool:
+    """Guarda la lista de eventos favoritos de un usuario en SQLite o Turso libSQL."""
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        events_clean = [str(e).strip() for e in events if str(e).strip()]
+        cursor.execute("DELETE FROM favorites WHERE user_id = ? AND event_id IS NOT NULL AND event_id != ''", (user_id,))
+        now_iso = datetime.datetime.now().isoformat()
+        for ev_id in events_clean:
+            fav_id = f"fav-evt-{user_id}-{ev_id}"
+            cursor.execute(
+                "INSERT OR REPLACE INTO favorites (id, user_id, event_id, created_at) VALUES (?, ?, ?, ?)",
+                (fav_id, user_id, ev_id, now_iso)
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"[Favorites Warning] Error al guardar eventos favoritos: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 
 def seed_sample_chat_messages(cursor):
