@@ -145,21 +145,14 @@ function loadUserFavorites() {
     state.favoritesOnlyMode = false;
   }
 
-  // Actualizar inmediatamente badge en cabecera para usuario autenticado
+  // Actualizar inmediatamente estado visual de favoritos en cabecera
   const favBadge = document.getElementById('badge-fav-count');
-  const totalFavs = (state.favoriteClubs ? state.favoriteClubs.length : 0) + (state.favorites ? state.favorites.length : 0);
   if (favBadge) {
-    if (totalFavs > 0) {
-      favBadge.textContent = String(totalFavs);
-      favBadge.style.display = 'inline-block';
-    } else {
-      favBadge.textContent = '0';
-      favBadge.style.display = 'none';
-    }
+    favBadge.style.display = 'none';
   }
   const favBtn = document.getElementById('btn-header-favorites') || document.getElementById('btn-favorites');
   if (favBtn) {
-    favBtn.classList.toggle('has-favorites', totalFavs > 0);
+    favBtn.classList.toggle('has-favorites', hasFavorites);
   }
 }
 
@@ -700,8 +693,8 @@ function initCapsuleDropdowns() {
     if (!e.target.closest('.capsule-dropdown-wrap')) {
       closeAllCapsuleDropdowns();
     }
-    // Cerrar navegación móvil si se hace clic fuera del header
-    if (!e.target.closest('.app-header')) {
+    // Cerrar navegación móvil si se hace clic fuera del header y fuera del menú móvil
+    if (!e.target.closest('.app-header') && !e.target.closest('.capsule-nav-group')) {
       closeMobileNav();
     }
   });
@@ -714,9 +707,9 @@ function initCapsuleDropdowns() {
     }
   });
 
-  // En pantallas de escritorio (>= 1024px), cerrar menú colapsable móvil
+  // En pantallas de tablet o escritorio (>= 768px), cerrar menú colapsable móvil
   window.addEventListener('resize', () => {
-    if (window.innerWidth >= 1024) {
+    if (window.innerWidth >= 768) {
       closeMobileNav();
     }
   });
@@ -2083,20 +2076,14 @@ function updateFilterButtonsVisual() {
   const favBtn = document.getElementById('btn-header-favorites');
   const favBadge = document.getElementById('badge-fav-count');
   const isGuest = !isSportsLiveAuthenticated();
-  const favCount = isGuest ? 0 : ((state.favoriteClubs || []).length + (state.favorites || []).length);
+  const hasFavs = !isGuest && (((state.favoriteClubs || []).length + (state.favorites || []).length) > 0);
 
   if (favBadge) {
-    if (!isGuest && favCount > 0) {
-      favBadge.textContent = String(favCount);
-      favBadge.style.display = 'inline-block';
-    } else {
-      favBadge.textContent = '0';
-      favBadge.style.display = 'none';
-    }
+    favBadge.style.display = 'none';
   }
 
   if (favBtn) {
-    favBtn.classList.toggle('has-favorites', !isGuest && favCount > 0);
+    favBtn.classList.toggle('has-favorites', hasFavs);
   }
 }
 
