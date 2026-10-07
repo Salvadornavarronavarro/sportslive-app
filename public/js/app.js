@@ -135,19 +135,22 @@ function loadUserFavorites() {
     state.favoriteClubs = [];
   }
 
-  // Si no hay favoritos, desactivar el modo de solo favoritos para mostrar portada general completa
-  if (!state.favoriteClubs || state.favoriteClubs.length === 0) {
-    state.favoritesOnlyMode = false;
-  } else {
+  // Si el usuario ya tiene favoritos configurados, la cartelera principal debe mostrar por defecto sus vídeos y partidos favoritos
+  const hasFavClubs = state.favoriteClubs && state.favoriteClubs.length > 0;
+  const hasFavMatches = state.favorites && state.favorites.length > 0;
+  const hasFavorites = hasFavClubs || hasFavMatches;
+  if (hasFavorites) {
     state.favoritesOnlyMode = true;
+  } else {
+    state.favoritesOnlyMode = false;
   }
 
   // Actualizar inmediatamente badge en cabecera para usuario autenticado
   const favBadge = document.getElementById('badge-fav-count');
+  const totalFavs = (state.favoriteClubs ? state.favoriteClubs.length : 0) + (state.favorites ? state.favorites.length : 0);
   if (favBadge) {
-    const count = (state.favoriteClubs || []).length;
-    if (count > 0) {
-      favBadge.textContent = String(count);
+    if (totalFavs > 0) {
+      favBadge.textContent = String(totalFavs);
       favBadge.style.display = 'inline-block';
     } else {
       favBadge.textContent = '0';
@@ -156,7 +159,7 @@ function loadUserFavorites() {
   }
   const favBtn = document.getElementById('btn-header-favorites') || document.getElementById('btn-favorites');
   if (favBtn) {
-    favBtn.classList.toggle('has-favorites', !!(state.favoriteClubs && state.favoriteClubs.length > 0));
+    favBtn.classList.toggle('has-favorites', totalFavs > 0);
   }
 }
 
@@ -1401,18 +1404,30 @@ function closeFavoritesModal() {
     document.body.style.overflow = '';
   }
 
-  // Cierre limpio: si se modificaron clubes favoritos mientras el modal estaba abierto,
-  // aplicar los cambios a la cartelera
-  if (state.favoritesChangedWhileModalOpen) {
-    state.favoritesChangedWhileModalOpen = false;
-    applyFilters();
+  state.favoritesChangedWhileModalOpen = false;
+
+  const authenticated = isSportsLiveAuthenticated();
+  if (authenticated) {
+    const hasFavClubs = state.favoriteClubs && state.favoriteClubs.length > 0;
+    const hasFavMatches = state.favorites && state.favorites.length > 0;
+    const hasFavorites = hasFavClubs || hasFavMatches;
+    if (hasFavorites) {
+      state.favoritesOnlyMode = true;
+    } else {
+      state.favoritesOnlyMode = false;
+    }
   }
+
+  // Cierre reactivo inmediato: actualizar componentes y re-filtrar/renderizar la portada sin recargar la página
+  updateFilterButtonsVisual();
+  updateActiveFilterIndicator();
+  applyFilters();
 }
 
 function handleApplyFavoritesAndClose() {
   state.favoritesChangedWhileModalOpen = false;
+  state.favoritesOnlyMode = true;
   closeFavoritesModal();
-  applyFilters();
 }
 
 async function backToFavoritesModal() {
@@ -1697,8 +1712,16 @@ async function toggleFavoriteClub(clubName, event) {
   // Registrar que se realizaron modificaciones mientras el modal estaba abierto
   state.favoritesChangedWhileModalOpen = true;
 
-  // Persistir en almacén dependiente del usuario activo (o favorites_guest) y SQLite
+  // Persistir en almacén dependiente del usuario activo y backend
   saveUserFavorites('clubs');
+
+  const hasFavClubs = state.favoriteClubs && state.favoriteClubs.length > 0;
+  const hasFavMatches = state.favorites && state.favorites.length > 0;
+  if (hasFavClubs || hasFavMatches) {
+    state.favoritesOnlyMode = true;
+  } else {
+    state.favoritesOnlyMode = false;
+  }
 
   // Actualizar listados de datos y estado de la interfaz
   updateFilterButtonsVisual();
@@ -1706,6 +1729,10 @@ async function toggleFavoriteClub(clubName, event) {
   renderFavClubsList();
   updateFavModalCounter();
   updateClubModeFollowButton();
+  updateActiveFilterIndicator();
+
+  // Reactividad inmediata en la vista principal
+  applyFilters();
 }
 
 function filterClubsInModal(query) {
@@ -1874,8 +1901,8 @@ function updateActiveFilterIndicator() {
     const displayName = clubObj ? clubObj.name : rawClubName;
     if (targetEl) targetEl.textContent = displayName;
     indicator.style.display = 'flex';
-  } else if (state.favoritesOnlyMode && (state.favoriteClubs || []).length > 0) {
-    if (targetEl) targetEl.textContent = 'Clubes Favoritos';
+  } else if (state.favoritesOnlyMode && ((state.favoriteClubs || []).length > 0 || (state.favorites || []).length > 0)) {
+    if (targetEl) targetEl.textContent = (state.favoriteClubs && state.favoriteClubs.length > 0) ? 'Mis Clubes Favoritos' : 'Mis Favoritos';
     indicator.style.display = 'flex';
   } else {
     indicator.style.display = 'none';
@@ -1951,8 +1978,14 @@ async function syncUserFavorites() {
         }
         changed = true;
       }
+      const hasFavClubs = state.favoriteClubs && state.favoriteClubs.length > 0;
+      const hasFavMatches = state.favorites && state.favorites.length > 0;
+      if (hasFavClubs || hasFavMatches) {
+        state.favoritesOnlyMode = true;
+      }
       if (changed) {
         updateFilterButtonsVisual();
+        updateActiveFilterIndicator();
         applyFilters();
       }
     }
@@ -2045,7 +2078,7 @@ function updateFilterButtonsVisual() {
   const favBtn = document.getElementById('btn-header-favorites');
   const favBadge = document.getElementById('badge-fav-count');
   const isGuest = !isSportsLiveAuthenticated();
-  const favCount = isGuest ? 0 : (state.favoriteClubs || []).length;
+  const favCount = isGuest ? 0 : ((state.favoriteClubs || []).length + (state.favorites || []).length);
 
   if (favBadge) {
     if (!isGuest && favCount > 0) {
@@ -2077,18 +2110,31 @@ function updateFeaturedPlayer(filtered) {
   const validFiltered = (filtered || []).filter(e => !isTestResidualEvent(e));
 
   if (validFiltered && validFiltered.length > 0) {
-    // Si el usuario tiene favoritos activos, priorizar el primer partido LIVE o reciente de sus favoritos
-    const hasFavorites = state.favoriteClubs && state.favoriteClubs.length > 0;
+    // Si el usuario tiene favoritos activos, priorizar el primer partido LIVE o de sus favoritos en el reproductor principal
+    const isGuest = !state.currentUser;
+    const hasFavClubs = !isGuest && state.favoriteClubs && state.favoriteClubs.length > 0;
+    const hasFavMatches = !isGuest && state.favorites && state.favorites.length > 0;
+    const hasFavorites = hasFavClubs || hasFavMatches;
+
+    const isFav = (e) => {
+      if (!hasFavorites) return false;
+      return (hasFavClubs && isEventOfFavoriteClub(e, state.favoriteClubs)) ||
+             (hasFavMatches && state.favorites.includes(e.id));
+    };
+
     if (hasFavorites) {
-      const favLive = validFiltered.find(e => isEventOfFavoriteClub(e, state.favoriteClubs) && e.status === 'LIVE');
+      // 1. LIVE de favoritos en máxima prioridad
+      const favLive = validFiltered.find(e => isFav(e) && e.status === 'LIVE');
       if (favLive) {
         if (state.featuredEventId !== favLive.id) {
           loadFeaturedPlayer(favLive);
         }
         return;
       }
-      const favAny = validFiltered.find(e => isEventOfFavoriteClub(e, state.favoriteClubs));
-      if (favAny && !validFiltered.some(e => e.id === state.featuredEventId)) {
+      // 2. Cualquier contenido de sus favoritos si el reproductor actual no es ya un favorito
+      const favAny = validFiltered.find(e => isFav(e));
+      const currentIsFav = validFiltered.some(e => e.id === state.featuredEventId && isFav(e));
+      if (favAny && !currentIsFav) {
         if (state.featuredEventId !== favAny.id) {
           loadFeaturedPlayer(favAny);
         }
@@ -2156,17 +2202,30 @@ function updateFeaturedSidebar(filtered) {
   const validFiltered = (filtered || []).filter(e => !isTestResidualEvent(e));
 
   if (validFiltered && validFiltered.length > 0) {
+    const isGuest = !state.currentUser;
+    const hasFavClubs = !isGuest && state.favoriteClubs && state.favoriteClubs.length > 0;
+    const hasFavMatches = !isGuest && state.favorites && state.favorites.length > 0;
+    const hasFavorites = hasFavClubs || hasFavMatches;
+
+    const isFav = (e) => (
+      hasFavorites && (
+        (hasFavClubs && isEventOfFavoriteClub(e, state.favoriteClubs)) ||
+        (hasFavMatches && state.favorites.includes(e.id))
+      )
+    );
+
     const upcomingFiltered = validFiltered.filter(e => e.status === 'UPCOMING');
-    if (upcomingFiltered.length > 0) {
-      renderFeaturedSidebar(upcomingFiltered.slice(0, 6));
-    } else {
-      const others = validFiltered.filter(e => e.id !== state.featuredEventId);
-      if (others.length > 0) {
-        renderFeaturedSidebar(others.slice(0, 6));
-      } else {
-        renderFeaturedSidebar(validFiltered.slice(0, 6));
-      }
+    let itemsToShow = upcomingFiltered.length > 0 ? upcomingFiltered : validFiltered.filter(e => e.id !== state.featuredEventId);
+
+    if (hasFavorites) {
+      itemsToShow.sort((a, b) => {
+        const aF = isFav(a) ? 1 : 0;
+        const bF = isFav(b) ? 1 : 0;
+        return bF - aF;
+      });
     }
+
+    renderFeaturedSidebar(itemsToShow.slice(0, 6));
   } else {
     // Si no hay partidos con los filtros seleccionados, limpiar y mostrar aviso sin fallback cruzado a otras regiones
     renderFeaturedSidebar([]);
@@ -2191,7 +2250,9 @@ function applyFilters() {
   }
 
   const isGuest = !state.currentUser;
-  const hasFavorites = !isGuest && state.favoriteClubs && state.favoriteClubs.length > 0;
+  const hasFavoriteClubs = !isGuest && state.favoriteClubs && state.favoriteClubs.length > 0;
+  const hasFavoriteMatches = !isGuest && state.favorites && state.favorites.length > 0;
+  const hasFavorites = hasFavoriteClubs || hasFavoriteMatches;
   const isFavoritesView = hasFavorites && state.favoritesOnlyMode;
 
   // Actualizar banner superior y títulos según estado de favoritos
@@ -2204,7 +2265,13 @@ function applyFilters() {
     if (hasFavorites && !state.activeClubMode) {
       favBanner.style.display = 'flex';
       if (favClubsListEl) {
-        favClubsListEl.textContent = `Mostrando partidos y emisiones de tus clubes seguidos (${state.favoriteClubs.join(', ')}).`;
+        if (hasFavoriteClubs && hasFavoriteMatches) {
+          favClubsListEl.textContent = `Mostrando partidos y emisiones de tus clubes seguidos (${state.favoriteClubs.join(', ')}) y partidos favoritos.`;
+        } else if (hasFavoriteClubs) {
+          favClubsListEl.textContent = `Mostrando partidos y emisiones de tus clubes seguidos (${state.favoriteClubs.join(', ')}).`;
+        } else {
+          favClubsListEl.textContent = 'Mostrando tus partidos y emisiones marcadas como favoritas.';
+        }
       }
       if (btnToggleMode) {
         if (state.favoritesOnlyMode) {
@@ -2225,7 +2292,7 @@ function applyFilters() {
 
   if (sectionTitle) {
     if (isFavoritesView) {
-      sectionTitle.innerHTML = '⭐ En Directo y Última Semana de tus Favoritos';
+      sectionTitle.innerHTML = '⭐ En Directo y Emisiones de tus Favoritos';
     } else {
       sectionTitle.textContent = 'Partidos en Directo';
     }
@@ -2233,6 +2300,14 @@ function applyFilters() {
 
   // Base de eventos según vista de favoritos, excluyendo cualquier residuo de prueba y requiriendo club aprobado
   const cleanEvents = (state.allEvents || []).filter(e => !isTestResidualEvent(e) && isEventOfApprovedClub(e));
+
+  // Helper para verificar si un evento es favorito (por club o por evento)
+  const isFavoriteEvent = (e) => {
+    if (!hasFavorites) return false;
+    const matchClub = hasFavoriteClubs && isEventOfFavoriteClub(e, state.favoriteClubs);
+    const matchEvt = hasFavoriteMatches && state.favorites.includes(e.id);
+    return matchClub || matchEvt;
+  };
 
   // MODO CLUB / MONOGRÁFICO DE EQUIPO ACTIVO
   const targetClubMode = state.activeClubMode || state.activeClubFilter;
@@ -2286,11 +2361,11 @@ function applyFilters() {
   const portadaEvents = limitEventsForPortada(cleanEvents, 5);
   let baseEvents = portadaEvents;
   if (isFavoritesView) {
-    const favMatches = cleanEvents.filter(e => isEventOfFavoriteClub(e, state.favoriteClubs) && isFavoriteEventRecentOrLive(e));
+    const favMatches = cleanEvents.filter(isFavoriteEvent);
     if (favMatches.length > 0) {
       baseEvents = limitEventsForPortada(favMatches, 5);
     } else {
-      // Si aún no hay partidos recientes de esos clubes, mostrar los generales con título estándar
+      // Si aún no hay partidos de esos favoritos, mostrar los generales con título estándar
       baseEvents = portadaEvents;
       if (sectionTitle) {
         sectionTitle.textContent = 'Partidos en Directo';
@@ -2319,6 +2394,29 @@ function applyFilters() {
 
     return matchSport && matchGeo && matchTime && matchSearch;
   });
+
+  // Priorizar eventos de favoritos en la cartelera principal (adaptando la pantalla a sus preferencias)
+  if (hasFavorites) {
+    filtered.sort((a, b) => {
+      const aFav = isFavoriteEvent(a) ? 1 : 0;
+      const bFav = isFavoriteEvent(b) ? 1 : 0;
+      const aLive = a.status === 'LIVE' ? 1 : 0;
+      const bLive = b.status === 'LIVE' ? 1 : 0;
+
+      // 1. LIVE de favoritos en primera posición
+      if (aLive && bLive) {
+        if (aFav !== bFav) return bFav - aFav;
+      }
+      // 2. Eventos LIVE generales
+      if (aLive !== bLive) return bLive - aLive;
+
+      // 3. Favoritos no-LIVE por encima de no-favoritos
+      if (aFav !== bFav) return bFav - aFav;
+
+      // 4. Por fecha descendente
+      return new Date(b.date_time || 0) - new Date(a.date_time || 0);
+    });
+  }
 
   state.events = filtered;
 
@@ -4194,6 +4292,14 @@ function toggleFavorite(eventId, event, fromModal = false) {
 
   saveUserFavorites('matches');
 
+  const hasFavClubs = state.favoriteClubs && state.favoriteClubs.length > 0;
+  const hasFavMatches = state.favorites && state.favorites.length > 0;
+  if (hasFavClubs || hasFavMatches) {
+    state.favoritesOnlyMode = true;
+  } else {
+    state.favoritesOnlyMode = false;
+  }
+
   // Actualizar icono en la tarjeta
   const card = document.querySelector(`.match-card[data-id="${eventId}"] .btn-bell`);
   if (card) {
@@ -4208,7 +4314,13 @@ function toggleFavorite(eventId, event, fromModal = false) {
       favBtn.innerHTML = isNowFav ? '🔔 Equipo en favoritos' : '🔕 Seguir equipo (Aviso 10 min antes)';
     }
   }
+
+  // Actualizar reactivamente la vista principal de inmediato sin recargar
+  updateFilterButtonsVisual();
+  updateActiveFilterIndicator();
+  applyFilters();
 }
+window.toggleFavorite = toggleFavorite;
 
 /* ==========================================================
    8. MODERACIÓN Y REPORTES COMUNITARIOS

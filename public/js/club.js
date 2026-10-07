@@ -398,6 +398,9 @@ async function toggleFollowCurrentClub() {
 
   localStorage.setItem('sportslive_favorite_clubs', JSON.stringify(list));
   localStorage.setItem('talentolive_favorite_clubs', JSON.stringify(list));
+  if (clubState.currentUser && clubState.currentUser.id) {
+    localStorage.setItem('favorite_clubs_' + clubState.currentUser.id, JSON.stringify(list));
+  }
   updateFollowButtonState();
 
   // Sincronizar en backend si el usuario está autenticado
