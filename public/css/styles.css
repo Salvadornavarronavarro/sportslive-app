@@ -79,23 +79,34 @@ body {
 .navbar-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1000;
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-subtle);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   width: 100%;
-  max-width: 100%;
+  max-width: 100vw;
   height: 60px;
   box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+.app-header:has(.mobile-open),
+.navbar-header:has(.mobile-open),
+.app-header.menu-open,
+.navbar-header.menu-open {
+  overflow: visible !important;
+}
+
 .header-container,
 .nav-container {
-  max-width: 1400px;
+  max-width: 100vw;
   width: 100%;
   height: 60px;
   margin: 0 auto;
@@ -105,7 +116,6 @@ body {
   white-space: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   box-sizing: border-box;
 }
 
@@ -2251,9 +2261,9 @@ iframe#main-player-iframe {
 
 /* ----------------- Barra de navegación y menús responsive ----------------- */
 
-/* 1. TABLET / iPAD (>= 721px) Y MÓVIL EN HORIZONTAL (LANDSCAPE):
-   Conserva los botones principales visibles inline con desplazamiento suave sin ocultarlos tras la hamburguesa */
-@media (min-width: 721px), (orientation: landscape) and (min-width: 541px) {
+/* 1. DESKTOP (>= 1024px):
+   Navegación horizontal completa en cabecera sin scroll horizontal ni desbordamiento */
+@media (min-width: 1024px) {
   .btn-mobile-nav-toggle {
     display: none !important;
   }
@@ -2262,24 +2272,16 @@ iframe#main-player-iframe {
     display: flex !important;
     position: static !important;
     width: auto !important;
-    max-height: none !important;
     background: transparent !important;
     box-shadow: none !important;
     border-bottom: none !important;
     padding: 0 !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
+    overflow: visible !important;
     flex-direction: row !important;
-    gap: 6px !important;
+    gap: 8px !important;
     align-items: center !important;
     justify-content: flex-end !important;
-  }
-
-  .capsule-nav-group::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+    max-height: none !important;
   }
 
   .capsule-nav-group .capsule-btn {
@@ -2287,8 +2289,8 @@ iframe#main-player-iframe {
     white-space: nowrap !important;
     height: 38px !important;
     line-height: 38px !important;
-    font-size: 0.78rem !important;
-    padding: 0 0.65rem !important;
+    font-size: 0.8rem !important;
+    padding: 0 0.8rem !important;
     justify-content: center !important;
     border-radius: 12px !important;
   }
@@ -2296,10 +2298,6 @@ iframe#main-player-iframe {
   .capsule-nav-group .capsule-dropdown-wrap {
     width: auto !important;
     display: inline-block !important;
-  }
-
-  .capsule-nav-group .capsule-btn-arrow {
-    margin-left: 0 !important;
   }
 
   .capsule-nav-group .floating-dropdown-menu {
@@ -2313,23 +2311,30 @@ iframe#main-player-iframe {
   }
 }
 
-/* 2. PANTALLAS ESTRECHAS EN VERTICAL (MÓVIL <= 720px PORTRAIT O <= 540px):
-   Menú hamburguesa que despliega cajón completo con acceso claro a todos los apartados */
-@media (max-width: 720px) and (orientation: portrait), (max-width: 540px) {
+/* 2. PANTALLAS < 1024px (iPad vertical, iPhone vertical y apaisado):
+   - Oculta los botones centrales de navegación horizontal (Directos, Deportes, Toda España, Anúnciate)
+   - Deja visibles únicamente: a la izquierda el [Logotipo], y a la derecha el [Botón compacto de usuario] y el [Botón Hamburguesa ☰]
+   - Todos los accesos a secciones quedan organizados dentro del menú hamburguesa al pulsar ☰ */
+@media (max-width: 1023px) {
   .header-container,
   .nav-container {
-    padding: 0 max(0.75rem, env(safe-area-inset-right, 0px)) 0 max(0.75rem, env(safe-area-inset-left, 0px));
-    gap: 6px;
+    padding: 0 max(0.85rem, env(safe-area-inset-right, 0px)) 0 max(0.85rem, env(safe-area-inset-left, 0px));
     justify-content: space-between;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
   }
 
   .brand-wrapper {
-    flex-shrink: 1;
-    min-width: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
   }
 
-  .brand-text span {
-    display: none;
+  .brand-logo {
+    height: 36px;
+    width: auto;
   }
 
   .brand-text h1 {
@@ -2337,135 +2342,176 @@ iframe#main-player-iframe {
     white-space: nowrap;
   }
 
+  .brand-text span {
+    display: none;
+  }
+
   .header-right-zone-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
   }
 
-  /* Mostrar botón hamburguesa (☰) únicamente en pantallas estrechas verticales */
+  /* Mostrar botón hamburguesa (☰) */
   .btn-mobile-nav-toggle {
     display: inline-flex !important;
   }
 
-  /* Botón de usuario/login compacto en la barra superior móvil */
-  .account-capsule-btn {
-    height: 38px;
-    line-height: 38px;
-    font-size: 0.78rem;
-    padding: 0 0.55rem;
-    white-space: nowrap;
-    border-radius: 10px;
-    max-width: 130px;
-  }
-
-  .account-capsule-btn .account-btn-label {
-    max-width: 70px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-block;
-  }
-
-  /* Navegación secundaria móvil: Colapsada por defecto en formato cajón */
+  /* Ocultar botones centrales de navegación horizontal por defecto */
   .capsule-nav-group {
-    display: none;
-    position: absolute;
-    top: 60px;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background: rgba(15, 23, 42, 0.98);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border-subtle);
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
-    padding: 0.85rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px));
-    padding-left: max(1rem, env(safe-area-inset-left, 0px));
-    padding-right: max(1rem, env(safe-area-inset-right, 0px));
-    box-sizing: border-box;
-    max-height: calc(100dvh - 65px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    z-index: 1000;
-    flex-direction: column;
-    gap: 0.65rem;
+    display: none !important;
+    position: absolute !important;
+    top: 60px !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85) !important;
+    padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) calc(2rem + env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px)) !important;
+    box-sizing: border-box !important;
+    max-height: calc(100dvh - 60px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    z-index: 1000 !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
   }
 
-  /* Al desplegar el menú hamburguesa */
+  /* Al pulsar ☰, se despliega el menú con todos los accesos a secciones */
   .capsule-nav-group.mobile-open {
     display: flex !important;
     animation: mobileNavFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
-  @keyframes mobileNavFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Botones dentro del menú cajón móvil */
+  /* Botones dentro del menú desplegado */
   .capsule-nav-group .capsule-btn {
-    width: 100%;
-    justify-content: flex-start;
-    padding: 0 1rem;
-    height: 44px;
-    line-height: 44px;
-    font-size: 0.86rem;
-    border-radius: 10px;
-    box-sizing: border-box;
+    width: 100% !important;
+    justify-content: flex-start !important;
+    padding: 0 1rem !important;
+    height: 44px !important;
+    line-height: 44px !important;
+    font-size: 0.88rem !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
   }
 
   .capsule-nav-group .capsule-dropdown-wrap {
-    width: 100%;
-    display: block;
+    width: 100% !important;
+    display: block !important;
   }
 
   .capsule-nav-group .capsule-btn-arrow {
-    margin-left: auto;
+    margin-left: auto !important;
   }
 
-  /* Desplegables adaptados a acordeón en el menú móvil */
+  /* Desplegables adaptados a acordeón en el menú */
   .capsule-nav-group .floating-dropdown-menu {
     position: static !important;
     transform: none !important;
     width: 100% !important;
     min-width: 100% !important;
-    box-sizing: border-box;
-    margin-top: 0.4rem;
-    background: #0f172a;
-    border: 1px solid rgba(56, 189, 248, 0.4);
-    box-shadow: none;
-    border-radius: 10px;
-    animation: none;
+    box-sizing: border-box !important;
+    margin-top: 0.4rem !important;
+    background: #0f172a !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    box-shadow: none !important;
+    border-radius: 10px !important;
+    animation: none !important;
     display: none;
   }
 
   .capsule-nav-group .capsule-dropdown-wrap.open .floating-dropdown-menu {
     display: block !important;
   }
+
+  /* Botón de usuario en formato compacto */
+  .account-capsule-btn {
+    height: 38px;
+    line-height: 38px;
+    font-size: 0.8rem;
+    padding: 0 0.65rem;
+    white-space: nowrap;
+    border-radius: 10px;
+    max-width: 140px;
+    box-sizing: border-box;
+  }
+
+  .account-capsule-btn .account-btn-label {
+    max-width: 75px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
+}
+
+/* 3. EN MÓVIL VERTICAL (< 600px):
+   Reduce el botón de usuario a su icono o texto corto para que no desplace los elementos */
+@media (max-width: 600px) {
+  .header-container,
+  .nav-container {
+    padding: 0 max(0.6rem, env(safe-area-inset-right, 0px)) 0 max(0.6rem, env(safe-area-inset-left, 0px));
+    gap: 6px;
+  }
+
+  .brand-logo {
+    height: 32px;
+  }
+
+  .brand-text h1 {
+    font-size: 1.05rem;
+  }
+
+  .account-capsule-btn {
+    height: 36px;
+    line-height: 36px;
+    padding: 0 0.5rem;
+    font-size: 0.74rem;
+    max-width: 105px;
+    gap: 0.25rem;
+    border-radius: 8px;
+  }
+
+  .account-capsule-btn .account-btn-label {
+    max-width: 50px;
+    font-size: 0.74rem;
+  }
+
+  .btn-mobile-nav-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 1.15rem;
+    border-radius: 8px;
+  }
 }
 
 @media (max-width: 380px) {
   .brand-text h1 {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
+
   .brand-logo {
-    height: 30px;
+    height: 28px;
   }
-  .account-capsule-btn {
-    padding: 0 0.45rem;
-    max-width: 90px;
-    font-size: 0.74rem;
-  }
+
+  /* En pantallas ultraestrechas (< 380px), mostrar solo el icono para máxima compacidad */
   .account-capsule-btn .account-btn-label {
-    max-width: 45px;
+    display: none !important;
+  }
+
+  .account-capsule-btn {
+    width: 36px;
+    max-width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .account-capsule-btn .capsule-btn-arrow {
+    display: none !important;
   }
 }
 

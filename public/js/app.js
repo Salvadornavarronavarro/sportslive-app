@@ -646,12 +646,14 @@ function toggleMobileNav(e) {
   const nav = document.getElementById('capsule-nav-group');
   const btn = document.getElementById('btn-mobile-nav-toggle');
   const icon = document.getElementById('hamburger-icon');
+  const header = document.querySelector('.app-header, .navbar-header');
   if (!nav) return;
   const isOpen = nav.classList.contains('mobile-open');
   if (isOpen) {
     closeMobileNav();
   } else {
     nav.classList.add('mobile-open');
+    if (header) header.classList.add('menu-open');
     if (btn) {
       btn.classList.add('active');
       btn.setAttribute('aria-expanded', 'true');
@@ -665,7 +667,9 @@ function closeMobileNav() {
   const nav = document.getElementById('capsule-nav-group');
   const btn = document.getElementById('btn-mobile-nav-toggle');
   const icon = document.getElementById('hamburger-icon');
+  const header = document.querySelector('.app-header, .navbar-header');
   if (nav) nav.classList.remove('mobile-open');
+  if (header) header.classList.remove('menu-open');
   if (btn) {
     btn.classList.remove('active');
     btn.setAttribute('aria-expanded', 'false');
@@ -710,9 +714,9 @@ function initCapsuleDropdowns() {
     }
   });
 
-  // En pantallas de escritorio, tablet o apaisado móvil, cerrar menú colapsable móvil
+  // En pantallas de escritorio (>= 1024px), cerrar menú colapsable móvil
   window.addEventListener('resize', () => {
-    if (window.innerWidth > 720 || window.matchMedia('(orientation: landscape)').matches) {
+    if (window.innerWidth >= 1024) {
       closeMobileNav();
     }
   });
@@ -4370,21 +4374,30 @@ function shareCurrentEvent() {
    ========================================================== */
 
 function initModals() {
-  // Aislamiento de eventos en contenedores modales para evitar clics indeseados en el fondo
-  document.querySelectorAll('.modal-content').forEach(content => {
-    content.addEventListener('click', (e) => {
-      // Si el elemento interactivo es un input, textarea, select, botón, label o enlace,
-      // no detener la propagación para garantizar que iOS gestione el foco nativo y teclado virtual táctil
-      if (e.target && e.target.closest('input, textarea, select, button, a, label')) {
-        return;
-      }
-      e.stopPropagation();
+  // Manejo de eventos en contenedores modales para máxima compatibilidad con el teclado táctil de iPadOS / iOS
+  ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evtType => {
+    document.querySelectorAll('.modal-content').forEach(content => {
+      content.addEventListener(evtType, (e) => {
+        // Asegurar que NINGÚN listener aplique preventDefault() cuando el target sea un elemento INPUT, TEXTAREA o BUTTON
+        // y permitir la propagación natural del evento al navegador nativo para despliegue inmediato del teclado táctil en iPadOS
+        if (e.target && e.target.closest('input, textarea, select, button, a, label')) {
+          return;
+        }
+        // Aislar clics en el fondo del modal para no cerrar el overlay
+        if (evtType === 'click') {
+          e.stopPropagation();
+        }
+      }, { passive: true });
     });
   });
 
-  // Cerrar modales con clic fuera o tecla Escape
+  // Cerrar modales con clic fuera (overlay)
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
+      // Si el clic/tap ocurrió dentro de un control interactivo (input, textarea, button), permitir propagación natural
+      if (e.target && e.target.closest('input, textarea, select, button, a, label')) {
+        return;
+      }
       if (e.target === overlay) {
         if (overlay.id === 'favorites-modal') {
           closeFavoritesModal();
@@ -4833,9 +4846,11 @@ async function handleAdminLoginSubmit(e) {
 window.handleAdminLoginSubmit = handleAdminLoginSubmit;
 
 async function handleLoginSubmit(e) {
-  e.preventDefault();
-  const identity = document.getElementById('login-identity').value.trim();
-  const password = document.getElementById('login-password').value;
+  if (e && e.preventDefault) e.preventDefault();
+  const identEl = document.getElementById('login-identity') || document.getElementById('loginUsername');
+  const passEl = document.getElementById('login-password') || document.getElementById('loginPassword');
+  const identity = (identEl ? identEl.value : '').trim();
+  const password = passEl ? passEl.value : '';
   await doLogin(identity, password);
 }
 

@@ -803,10 +803,15 @@
             <input 
               type="text" 
               id="login-identity" 
+              name="loginUsername"
               class="form-input" 
               placeholder="Introduce tu correo electrónico o nombre de usuario" 
               required
+              inputmode="text"
               autocomplete="username"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
             >
           </div>
 
@@ -815,9 +820,11 @@
             <input 
               type="password" 
               id="login-password" 
+              name="loginPassword"
               class="form-input" 
               placeholder="Introduce tu contraseña" 
               required
+              inputmode="text"
               autocomplete="current-password"
             >
           </div>
@@ -863,23 +870,23 @@
             </div>
             <div class="filter-group" style="margin-bottom: 0.75rem;">
               <label for="reg-club-name">Nombre Oficial del Club / Entidad *</label>
-              <input type="text" id="reg-club-name" class="form-input" placeholder="Ej: C.F. Intercity o Lucentum Alicante">
+              <input type="text" id="reg-club-name" name="clubName" class="form-input" placeholder="Ej: C.F. Intercity o Lucentum Alicante" inputmode="text" autocomplete="organization">
             </div>
             <div class="form-row-2" style="margin-bottom: 0.75rem;">
               <div class="filter-group">
                 <label for="reg-club-cif">CIF / Identificador Oficial *</label>
-                <input type="text" id="reg-club-cif" class="form-input" placeholder="Ej: G-28123456">
+                <input type="text" id="reg-club-cif" name="clubCif" class="form-input" placeholder="Ej: G-28123456" inputmode="text" autocomplete="off">
               </div>
               <div class="filter-group">
                 <label for="reg-club-location">Localidad / Municipio y Prov. *</label>
-                <input type="text" id="reg-club-location" class="form-input" placeholder="Ej: Alicante (Alicante)">
+                <input type="text" id="reg-club-location" name="clubLocation" class="form-input" placeholder="Ej: Alicante (Alicante)" inputmode="text" autocomplete="address-level2">
               </div>
             </div>
             <div class="filter-group" style="margin-bottom: 0.25rem;">
               <label for="reg-club-auth-key" style="color: #f59e0b; font-weight: 700;">
                 🔑 Código de Invitación / Clave de Autorización Oficial *
               </label>
-              <input type="text" id="reg-club-auth-key" class="form-input" style="border-color: rgba(245, 158, 11, 0.5); text-transform: uppercase;" placeholder="Introduce el código facilitado por la administración de SportsLive" autocomplete="off">
+              <input type="text" id="reg-club-auth-key" name="clubAuthKey" class="form-input" style="border-color: rgba(245, 158, 11, 0.5); text-transform: uppercase;" placeholder="Introduce el código facilitado por la administración de SportsLive" inputmode="text" autocomplete="off">
               <div style="margin-top: 0.45rem; font-size: 0.78rem; color: #94a3b8;">
                 ¿Eres un club y necesitas tu clave de acceso? <a href="#" id="link-request-club-key" onclick="requestClubKeyInfo(event)" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">[Solicitar Clave de Emisión]</a>
               </div>
@@ -889,21 +896,21 @@
           <!-- Campos generales (Nombre, Login, Email, Password) -->
           <div class="filter-group" style="margin-bottom: 0.9rem;">
             <label for="reg-fullname" id="label-reg-fullname">Nombre y Apellidos</label>
-            <input type="text" id="reg-fullname" class="form-input" placeholder="Ej: Carlos Gómez (o Responsable de Emisión)" required>
+            <input type="text" id="reg-fullname" name="name" class="form-input" placeholder="Ej: Carlos Gómez (o Responsable de Emisión)" required inputmode="text" autocomplete="name">
           </div>
           <div class="form-row-2" style="margin-bottom: 0.9rem;">
             <div class="filter-group">
               <label for="reg-username">Usuario (Login)</label>
-              <input type="text" id="reg-username" class="form-input" placeholder="Ej: cf_intercity o carlos88" required autocomplete="username">
+              <input type="text" id="reg-username" name="username" class="form-input" placeholder="Ej: cf_intercity o carlos88" required inputmode="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
             </div>
             <div class="filter-group">
               <label for="reg-email">Correo Electrónico</label>
-              <input type="email" id="reg-email" class="form-input" placeholder="club@ejemplo.es" required autocomplete="email">
+              <input type="email" id="reg-email" name="email" class="form-input" placeholder="club@ejemplo.es" required inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
             </div>
           </div>
           <div class="filter-group" style="margin-bottom: 1.25rem;">
             <label for="reg-password">Contraseña</label>
-            <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
+            <input type="password" id="reg-password" name="newPassword" class="form-input" placeholder="Mínimo 6 caracteres" required inputmode="text" autocomplete="new-password">
           </div>
 
           <div id="register-error" class="auth-error-msg" style="display: none;"></div>
@@ -937,19 +944,19 @@
         <form id="form-admin-login" onsubmit="handleAdminLoginSubmit(event)">
           <div class="filter-group" style="margin-bottom: 1rem;">
             <label for="admin-login-identity">Usuario Administrador</label>
-            <input type="text" id="admin-login-identity" class="form-input" placeholder="Usuario administrador" required autocomplete="username">
+            <input type="text" id="admin-login-identity" name="adminUsername" class="form-input" placeholder="Usuario administrador" required inputmode="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
           </div>
 
           <div class="filter-group" style="margin-bottom: 1rem;">
             <label for="admin-login-password">Contraseña</label>
-            <input type="password" id="admin-login-password" class="form-input" placeholder="Contraseña de administrador" required autocomplete="current-password">
+            <input type="password" id="admin-login-password" name="adminPassword" class="form-input" placeholder="Contraseña de administrador" required inputmode="text" autocomplete="current-password">
           </div>
 
           <div class="filter-group" style="margin-bottom: 1.25rem;">
             <label for="admin-login-key" style="color: #fbbf24; font-weight: 700;">
               🔑 Clave Secreta Maestra de Administración
             </label>
-            <input type="password" id="admin-login-key" class="form-input" placeholder="Introduce la clave secreta de administrador" required style="border-color: rgba(245, 158, 11, 0.5);">
+            <input type="password" id="admin-login-key" name="adminMasterKey" class="form-input" placeholder="Introduce la clave secreta de administrador" required inputmode="text" autocomplete="off" style="border-color: rgba(245, 158, 11, 0.5);">
           </div>
 
           <div id="admin-login-error" class="auth-error-msg" style="display: none; margin-bottom: 1rem;"></div>
