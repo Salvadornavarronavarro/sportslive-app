@@ -28,6 +28,19 @@ TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
 _turso_client = None
 _initializing = False
 
+def normalize_turso_url(url: str) -> str:
+    """Asegura el transporte HTTPS para Turso libSQL evitando fallos de WebSocket (WSServerHandshakeError)."""
+    if not url:
+        return ""
+    clean_url = url.strip()
+    if clean_url.startswith("libsql://"):
+        clean_url = "https://" + clean_url[len("libsql://"):]
+    elif clean_url.startswith("http://") and not clean_url.startswith("http://localhost") and not clean_url.startswith("http://127.0.0.1"):
+        clean_url = "https://" + clean_url[len("http://"):]
+    elif not clean_url.startswith("https://") and not clean_url.startswith("file:"):
+        clean_url = "https://" + clean_url
+    return clean_url
+
 def is_turso_configured() -> bool:
     """Indica si las credenciales de Turso libSQL están configuradas y disponibles."""
     url = os.environ.get("TURSO_DATABASE_URL")
@@ -35,14 +48,15 @@ def is_turso_configured() -> bool:
     return bool(url and token and libsql_client is not None)
 
 def get_turso_client():
-    """Obtiene o reutiliza el cliente sincronizado de Turso (libSQL)."""
+    """Obtiene o reutiliza el cliente sincronizado de Turso (libSQL) sobre transporte HTTPS."""
     global _turso_client
-    url = os.environ.get("TURSO_DATABASE_URL")
+    raw_url = os.environ.get("TURSO_DATABASE_URL")
     token = os.environ.get("TURSO_AUTH_TOKEN")
-    if not url or not token or libsql_client is None:
+    if not raw_url or not token or libsql_client is None:
         return None
+    url = normalize_turso_url(raw_url)
     if _turso_client is None or getattr(_turso_client, "closed", False):
-        _turso_client = libsql_client.create_client_sync(url, auth_token=token)
+        _turso_client = libsql_client.create_client_sync(url=url, auth_token=token)
     return _turso_client
 
 class TursoRow:
@@ -211,6 +225,11 @@ def get_db():
             client = get_turso_client()
             if client is not None:
                 conn = TursoConnection(client)
+                # Validar conectividad activa contra el endpoint HTTPS de Turso
+                test_cur = conn.cursor()
+                test_cur.execute("SELECT 1;")
+                test_cur.fetchone()
+
                 if not _initializing:
                     try:
                         cursor = conn.cursor()
@@ -234,11 +253,13 @@ def get_db():
                                 """)
                                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);")
                                 conn.commit()
-                    except Exception:
+                    except Exception as err:
                         _initializing = False
+                        print(f"[Turso Warning] Error durante inicialización de esquema en Turso ({err}).")
                 return conn
         except Exception as e:
-            print(f"[Aviso Base de Datos] Error al conectar con Turso libSQL ({e}). Utilizando base de datos local SQLite.")
+            print(f"[Aviso Base de Datos] Error al conectar con Turso libSQL ({e}). Conmutando automáticamente a base de datos local SQLite.")
+            _turso_client = None
 
     # 2. Conexión local SQLite transparente con fallback seguro (talentolive.db / grada_directo.db)
     if not os.path.exists(DB_PATH) and os.path.exists(LEGACY_DB_PATH):
@@ -289,8 +310,7 @@ def get_db():
 
     return conn
 
-def init_db():
-    conn = get_db()
+def _run_init_schema(conn):
     try:
         cursor = conn.cursor()
         cursor.execute("""
@@ -711,7 +731,33 @@ def init_db():
         cursor.execute("DELETE FROM events WHERE title LIKE '%Caso Borde%' OR home_team LIKE '%Test Local%' OR title LIKE '%Test Local%';")
         conn.commit()
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def init_db():
+    """Inicializa el esquema de base de datos en Turso o SQLite con recuperación automática ante fallos de conexión."""
+    global _turso_client
+    conn = None
+    try:
+        conn = get_db()
+        _run_init_schema(conn)
+    except Exception as e:
+        print(f"[Aviso Base de Datos] Fallo al inicializar con el proveedor primario ({e}). Conmutando inmediatamente a SQLite local.")
+        if conn and isinstance(conn, TursoConnection):
+            _turso_client = None
+            try:
+                conn.close()
+            except Exception:
+                pass
+        try:
+            target_local_db = DB_PATH if os.path.exists(DB_PATH) or not os.path.exists(LEGACY_DB_PATH) else LEGACY_DB_PATH
+            local_conn = sqlite3.connect(target_local_db, timeout=10.0)
+            local_conn.row_factory = sqlite3.Row
+            _run_init_schema(local_conn)
+        except Exception as local_err:
+            print(f"[Aviso Base de Datos] Error en init_db de respaldo local: {local_err}")
 
 def hash_password(password: str, salt: str = None) -> tuple:
     if not salt:
