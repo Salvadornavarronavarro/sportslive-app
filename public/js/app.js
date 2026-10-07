@@ -710,9 +710,9 @@ function initCapsuleDropdowns() {
     }
   });
 
-  // En pantallas de escritorio, cerrar menú colapsable móvil
+  // En pantallas de escritorio, tablet o apaisado móvil, cerrar menú colapsable móvil
   window.addEventListener('resize', () => {
-    if (window.innerWidth > 768) {
+    if (window.innerWidth > 720 || window.matchMedia('(orientation: landscape)').matches) {
       closeMobileNav();
     }
   });
@@ -1354,6 +1354,7 @@ window.handleFavoritesClick = handleFavoritesClick;
 window.handleFavoritesHeaderClick = handleFavoritesClick;
 
 async function openFavoritesModal() {
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   const authenticated = isSportsLiveAuthenticated();
 
   // Si el usuario no está autenticado o es invitado, abrir modal de captación o registro
@@ -3991,6 +3992,7 @@ function initIngestionForm() {
 }
 
 function openIngestionModal() {
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   const modal = document.getElementById('add-match-modal');
   if (modal) {
     modal.classList.add('active');
@@ -4371,6 +4373,11 @@ function initModals() {
   // Aislamiento de eventos en contenedores modales para evitar clics indeseados en el fondo
   document.querySelectorAll('.modal-content').forEach(content => {
     content.addEventListener('click', (e) => {
+      // Si el elemento interactivo es un input, textarea, select, botón, label o enlace,
+      // no detener la propagación para garantizar que iOS gestione el foco nativo y teclado virtual táctil
+      if (e.target && e.target.closest('input, textarea, select, button, a, label')) {
+        return;
+      }
       e.stopPropagation();
     });
   });
@@ -4405,6 +4412,8 @@ function initModals() {
         }
       });
       document.body.style.overflow = '';
+      if (typeof closeAllCapsuleDropdowns === 'function') closeAllCapsuleDropdowns();
+      if (typeof closeMobileNav === 'function') closeMobileNav();
     }
   });
 }
@@ -4520,7 +4529,7 @@ function renderUserHeader() {
     container.innerHTML = `
       <button type="button" class="capsule-btn account-capsule-btn btn-header-auth-prominent" id="btn-header-login" onclick="openAuthModal()" title="Iniciar Sesión o Registrarse en SportsLive">
         <span class="account-icon">👤</span>
-        <span id="account-btn-label">Iniciar Sesión</span>
+        <span id="account-btn-label" class="account-btn-label">Iniciar Sesión</span>
       </button>
     `;
     return;
@@ -4535,7 +4544,7 @@ function renderUserHeader() {
       <div class="capsule-dropdown-wrap" id="wrap-admin-user">
         <button type="button" class="capsule-btn account-capsule-btn role-admin" id="btn-header-admin-user" aria-haspopup="true" aria-expanded="false" title="👑 Administrador General de SportsLive">
           <span class="account-icon">👑</span>
-          <span id="account-btn-label">Admin</span>
+          <span id="account-btn-label" class="account-btn-label">Admin</span>
           <span class="capsule-btn-arrow">⌄</span>
         </button>
         <div class="floating-dropdown-menu user-dropdown-menu" id="menu-admin-user" role="menu">
@@ -4561,7 +4570,7 @@ function renderUserHeader() {
       <div class="capsule-dropdown-wrap" id="wrap-club-user">
         <button type="button" class="capsule-btn account-capsule-btn role-club" id="btn-header-club-user" aria-haspopup="true" aria-expanded="false" title="🛡️ Club Deportivo: ${clubName}">
           <span class="account-icon">🛡️</span>
-          <span id="account-btn-label">Mi Club</span>
+          <span id="account-btn-label" class="account-btn-label">Mi Club</span>
           <span class="capsule-btn-arrow">⌄</span>
         </button>
         <div class="floating-dropdown-menu user-dropdown-menu" id="menu-club-user" role="menu">
@@ -4584,12 +4593,16 @@ function renderUserHeader() {
   } else {
     // Viewer / Aficionado
     if (broadcastBtn) broadcastBtn.style.display = 'none';
-    const name = escapeHtml(u.full_name || u.username || 'Aficionado');
+    const rawFullName = (u.full_name || u.username || 'Aficionado').trim();
+    // Compact name for header: first name only (e.g. "Salva") to avoid pushing out other navbar elements on mobile
+    const firstName = rawFullName.split(/\s+/)[0];
+    const displayName = escapeHtml(firstName);
+    const fullDisplayName = escapeHtml(rawFullName);
     container.innerHTML = `
       <div class="capsule-dropdown-wrap" id="wrap-viewer-user">
-        <button type="button" class="capsule-btn account-capsule-btn" id="btn-header-viewer-user" aria-haspopup="true" aria-expanded="false" title="👤 Aficionado: ${name}">
+        <button type="button" class="capsule-btn account-capsule-btn" id="btn-header-viewer-user" aria-haspopup="true" aria-expanded="false" title="👤 Aficionado: ${fullDisplayName}">
           <span class="account-icon">👤</span>
-          <span id="account-btn-label">${name}</span>
+          <span id="account-btn-label" class="account-btn-label">${displayName}</span>
           <span class="capsule-btn-arrow">⌄</span>
         </button>
         <div class="floating-dropdown-menu user-dropdown-menu" id="menu-viewer-user" role="menu">
@@ -5030,6 +5043,7 @@ async function logout() {
    ========================================================== */
 
 async function openClubModal() {
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   if (!state.currentUser || (state.currentUser.role !== 'club' && state.currentUser.role !== 'admin')) {
     showToast('Acceso exclusivo para clubes deportivos o administradores.', 'error');
     return;
@@ -5270,6 +5284,7 @@ async function clubDeleteMatch(eventId) {
    ========================================================== */
 
 async function openAdminModal() {
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   if (!state.currentUser || state.currentUser.role !== 'admin') {
     showToast('Acceso exclusivo para el Administrador.', 'error');
     return;
@@ -6093,6 +6108,7 @@ function openSponsorModal(event) {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
     if (typeof event.preventDefault === 'function') event.preventDefault();
   }
+  if (typeof closeMobileNav === 'function') closeMobileNav();
   const modal = document.getElementById('sponsor-modal');
   if (modal) {
     modal.classList.add('active');

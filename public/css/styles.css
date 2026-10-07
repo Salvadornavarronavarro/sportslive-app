@@ -66,6 +66,10 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   min-height: 100vh;
+  min-height: 100dvh;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   display: flex;
   flex-direction: column;
 }
@@ -85,6 +89,8 @@ body {
   max-width: 100%;
   height: 60px;
   box-sizing: border-box;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .header-container,
@@ -93,7 +99,7 @@ body {
   width: 100%;
   height: 60px;
   margin: 0 auto;
-  padding: 0 1.25rem;
+  padding: 0 max(1.25rem, env(safe-area-inset-left, 0px)) 0 max(1.25rem, env(safe-area-inset-right, 0px));
   display: flex;
   flex-wrap: nowrap;
   white-space: nowrap;
@@ -306,6 +312,19 @@ body {
   font-size: 0.8rem;
   white-space: nowrap;
   box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 160px;
+}
+
+.account-btn-label {
+  display: inline-block;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .account-capsule-btn:hover {
@@ -1156,19 +1175,21 @@ iframe#main-player-iframe {
   color: var(--text-muted);
 }
 
-.form-select, .form-input {
+.form-select, .form-input, input, select, textarea {
   background: var(--bg-main);
   border: 1px solid var(--border-subtle);
   color: var(--text-main);
   padding: 0.6rem 0.85rem;
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-size: 16px !important; /* Previene auto-zoom molesto en iOS Safari / iPad */
+  touch-action: manipulation;
   outline: none;
   transition: var(--transition-standard);
   width: 100%;
+  box-sizing: border-box;
 }
 
-.form-select:focus, .form-input:focus {
+.form-select:focus, .form-input:focus, input:focus, select:focus, textarea:focus {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
@@ -1776,14 +1797,17 @@ iframe#main-player-iframe {
   background: rgba(3, 7, 18, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) calc(0.75rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(0.75rem + env(safe-area-inset-left, 0px));
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
 }
 
 .modal-overlay.active {
@@ -1797,8 +1821,9 @@ iframe#main-player-iframe {
   border-radius: var(--radius-lg);
   width: min(90vw, 800px);
   max-width: 90vw;
-  max-height: 90vh;
+  max-height: calc(100dvh - 2.5rem);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
@@ -2224,28 +2249,80 @@ iframe#main-player-iframe {
   color: white;
 }
 
-/* ----------------- Responsive Media Queries (Pantallas <= 768px) ----------------- */
-@media (max-width: 768px) {
-  .app-header,
-  .navbar-header {
-    height: 60px;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+/* ----------------- Barra de navegación y menús responsive ----------------- */
+
+/* 1. TABLET / iPAD (>= 721px) Y MÓVIL EN HORIZONTAL (LANDSCAPE):
+   Conserva los botones principales visibles inline con desplazamiento suave sin ocultarlos tras la hamburguesa */
+@media (min-width: 721px), (orientation: landscape) and (min-width: 541px) {
+  .btn-mobile-nav-toggle {
+    display: none !important;
   }
 
+  .capsule-nav-group {
+    display: flex !important;
+    position: static !important;
+    width: auto !important;
+    max-height: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-bottom: none !important;
+    padding: 0 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    flex-direction: row !important;
+    gap: 6px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+
+  .capsule-nav-group::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .capsule-nav-group .capsule-btn {
+    width: auto !important;
+    white-space: nowrap !important;
+    height: 38px !important;
+    line-height: 38px !important;
+    font-size: 0.78rem !important;
+    padding: 0 0.65rem !important;
+    justify-content: center !important;
+    border-radius: 12px !important;
+  }
+
+  .capsule-nav-group .capsule-dropdown-wrap {
+    width: auto !important;
+    display: inline-block !important;
+  }
+
+  .capsule-nav-group .capsule-btn-arrow {
+    margin-left: 0 !important;
+  }
+
+  .capsule-nav-group .floating-dropdown-menu {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    left: 0 !important;
+    width: auto !important;
+    min-width: 190px !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85), 0 0 14px rgba(56, 189, 248, 0.25) !important;
+    margin-top: 0 !important;
+  }
+}
+
+/* 2. PANTALLAS ESTRECHAS EN VERTICAL (MÓVIL <= 720px PORTRAIT O <= 540px):
+   Menú hamburguesa que despliega cajón completo con acceso claro a todos los apartados */
+@media (max-width: 720px) and (orientation: portrait), (max-width: 540px) {
   .header-container,
   .nav-container {
-    padding: 0 0.85rem;
-    gap: 8px;
-    flex-wrap: nowrap; /* Evita que la cabecera salte o se rompa en múltiples filas */
-    height: 60px;
-    position: relative;
+    padding: 0 max(0.75rem, env(safe-area-inset-right, 0px)) 0 max(0.75rem, env(safe-area-inset-left, 0px));
+    gap: 6px;
     justify-content: space-between;
-    align-items: center;
-    box-sizing: border-box;
   }
-  
+
   .brand-wrapper {
     flex-shrink: 1;
     min-width: 0;
@@ -2267,9 +2344,9 @@ iframe#main-player-iframe {
     flex-shrink: 0;
   }
 
-  /* Mostrar botón hamburguesa (☰) únicamente en dispositivos móviles */
+  /* Mostrar botón hamburguesa (☰) únicamente en pantallas estrechas verticales */
   .btn-mobile-nav-toggle {
-    display: inline-flex;
+    display: inline-flex !important;
   }
 
   /* Botón de usuario/login compacto en la barra superior móvil */
@@ -2277,12 +2354,21 @@ iframe#main-player-iframe {
     height: 38px;
     line-height: 38px;
     font-size: 0.78rem;
-    padding: 0 0.65rem;
+    padding: 0 0.55rem;
     white-space: nowrap;
     border-radius: 10px;
+    max-width: 130px;
   }
 
-  /* Navegación secundaria móvil: Colapsada por defecto para no invadir ni romper el reproductor */
+  .account-capsule-btn .account-btn-label {
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  /* Navegación secundaria móvil: Colapsada por defecto en formato cajón */
   .capsule-nav-group {
     display: none;
     position: absolute;
@@ -2295,18 +2381,21 @@ iframe#main-player-iframe {
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border-subtle);
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
-    padding: 0.85rem 1rem;
+    padding: 0.85rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
     box-sizing: border-box;
-    max-height: calc(100vh - 65px);
+    max-height: calc(100dvh - 65px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     z-index: 1000;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.65rem;
   }
 
   /* Al desplegar el menú hamburguesa */
   .capsule-nav-group.mobile-open {
-    display: flex;
+    display: flex !important;
     animation: mobileNavFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
@@ -2321,14 +2410,14 @@ iframe#main-player-iframe {
     }
   }
 
-  /* Botones dentro del menú móvil */
+  /* Botones dentro del menú cajón móvil */
   .capsule-nav-group .capsule-btn {
     width: 100%;
     justify-content: flex-start;
     padding: 0 1rem;
-    height: 42px;
-    line-height: 42px;
-    font-size: 0.84rem;
+    height: 44px;
+    line-height: 44px;
+    font-size: 0.86rem;
     border-radius: 10px;
     box-sizing: border-box;
   }
@@ -2342,12 +2431,12 @@ iframe#main-player-iframe {
     margin-left: auto;
   }
 
-  /* Desplegables flotantes adaptados a acordeón en el menú móvil */
+  /* Desplegables adaptados a acordeón en el menú móvil */
   .capsule-nav-group .floating-dropdown-menu {
-    position: static;
-    transform: none;
-    width: 100%;
-    min-width: 100%;
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    min-width: 100% !important;
     box-sizing: border-box;
     margin-top: 0.4rem;
     background: #0f172a;
@@ -2355,16 +2444,47 @@ iframe#main-player-iframe {
     box-shadow: none;
     border-radius: 10px;
     animation: none;
+    display: none;
   }
 
   .capsule-nav-group .capsule-dropdown-wrap.open .floating-dropdown-menu {
-    display: block;
+    display: block !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand-text h1 {
+    font-size: 1rem;
+  }
+  .brand-logo {
+    height: 30px;
+  }
+  .account-capsule-btn {
+    padding: 0 0.45rem;
+    max-width: 90px;
+    font-size: 0.74rem;
+  }
+  .account-capsule-btn .account-btn-label {
+    max-width: 45px;
+  }
+}
+
+/* 3. DISPOSICIÓN DE CONTENIDO Y REPRODUCTOR (PANTALLAS <= 768px) */
+@media (max-width: 768px) {
+  .app-header,
+  .navbar-header {
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
   }
 
   .main-content {
-    padding: 1rem 0.75rem 2.5rem;
+    min-height: calc(100dvh - 60px);
+    padding: 1rem max(0.75rem, env(safe-area-inset-left, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) max(0.75rem, env(safe-area-inset-right, 0px));
     width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
   }
 
   .main-layout-container {
@@ -4724,8 +4844,8 @@ iframe#main-player-iframe {
 @media (max-width: 768px) {
   .guest-floating-bar {
     border-radius: 16px;
-    bottom: 0.65rem;
-    padding: 0.75rem 1rem;
+    bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
   }
   .guest-floating-bar-content {
     flex-direction: column;
