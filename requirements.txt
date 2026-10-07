@@ -1,2 +1,3 @@
 feedparser
 urllib3
+libsql-client

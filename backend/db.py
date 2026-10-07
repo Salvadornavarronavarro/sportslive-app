@@ -17,17 +17,242 @@ from backend.metadata import extract_metadata_from_url
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "talentolive.db")
 LEGACY_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "grada_directo.db")
 
+try:
+    import libsql_client
+except ImportError:
+    libsql_client = None
+
+TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+
+_turso_client = None
 _initializing = False
+
+def is_turso_configured() -> bool:
+    """Indica si las credenciales de Turso libSQL están configuradas y disponibles."""
+    url = os.environ.get("TURSO_DATABASE_URL")
+    token = os.environ.get("TURSO_AUTH_TOKEN")
+    return bool(url and token and libsql_client is not None)
+
+def get_turso_client():
+    """Obtiene o reutiliza el cliente sincronizado de Turso (libSQL)."""
+    global _turso_client
+    url = os.environ.get("TURSO_DATABASE_URL")
+    token = os.environ.get("TURSO_AUTH_TOKEN")
+    if not url or not token or libsql_client is None:
+        return None
+    if _turso_client is None or getattr(_turso_client, "closed", False):
+        _turso_client = libsql_client.create_client_sync(url, auth_token=token)
+    return _turso_client
+
+class TursoRow:
+    """Adaptador de fila libSQL compatible con sqlite3.Row, dict(row) e indexación por nombre y posición."""
+    __slots__ = ("_columns", "_values", "_col_map")
+
+    def __init__(self, columns, values):
+        self._columns = tuple(columns)
+        self._values = tuple(values)
+        self._col_map = {col.lower(): i for i, col in enumerate(self._columns)}
+
+    def keys(self):
+        return list(self._columns)
+
+    def values(self):
+        return list(self._values)
+
+    def items(self):
+        return [(self._columns[i], self._values[i]) for i in range(len(self._columns))]
+
+    def get(self, key, default=None):
+        if isinstance(key, str):
+            idx = self._col_map.get(key.lower())
+            if idx is not None:
+                return self._values[idx]
+        return default
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self._values[item]
+        elif isinstance(item, str):
+            idx = self._col_map.get(item.lower())
+            if idx is not None:
+                return self._values[idx]
+            raise KeyError(item)
+        raise TypeError(f"Row indices must be integers or strings, not {type(item).__name__}")
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self):
+        return len(self._values)
+
+    def __contains__(self, key):
+        if isinstance(key, str):
+            return key.lower() in self._col_map
+        return False
+
+    def __repr__(self):
+        return f"<TursoRow {dict(self)}>"
+
+class TursoCursor:
+    """Adaptador de cursor para el cliente sincrónico de libSQL."""
+    def __init__(self, client):
+        self._client = client
+        self._rows = []
+        self._idx = 0
+        self.description = None
+        self.rowcount = -1
+        self.lastrowid = None
+
+    def execute(self, sql, params=None):
+        args = []
+        if params is not None:
+            if isinstance(params, (list, tuple)):
+                args = list(params)
+            elif isinstance(params, dict):
+                args = params
+            else:
+                args = [params]
+
+        sql_clean = sql.strip()
+        # Filtrar pragmas locales que no corresponden a servidores remotos libSQL
+        if sql_clean.upper().startswith("PRAGMA") and any(k in sql_clean.upper() for k in ("JOURNAL_MODE", "SYNCHRONOUS", "BUSY_TIMEOUT")):
+            try:
+                res = self._client.execute(sql_clean, args)
+            except Exception:
+                self._rows = []
+                self._idx = 0
+                self.rowcount = 0
+                return self
+        else:
+            res = self._client.execute(sql_clean, args)
+
+        self.lastrowid = getattr(res, "last_insert_rowid", None)
+        self.rowcount = getattr(res, "rows_affected", -1)
+        cols = getattr(res, "columns", ())
+        if cols:
+            self.description = [(c, None, None, None, None, None, None) for c in cols]
+            self._rows = [TursoRow(cols, r) for r in res.rows]
+        else:
+            self.description = None
+            self._rows = []
+        self._idx = 0
+        return self
+
+    def executemany(self, sql, seq_of_params):
+        for p in seq_of_params:
+            self.execute(sql, p)
+        return self
+
+    def fetchone(self):
+        if self._rows and self._idx < len(self._rows):
+            row = self._rows[self._idx]
+            self._idx += 1
+            return row
+        return None
+
+    def fetchall(self):
+        if self._rows and self._idx < len(self._rows):
+            rows = self._rows[self._idx:]
+            self._idx = len(self._rows)
+            return rows
+        return []
+
+    def fetchmany(self, size=1):
+        if not self._rows or self._idx >= len(self._rows):
+            return []
+        rows = self._rows[self._idx:self._idx + size]
+        self._idx += len(rows)
+        return rows
+
+    def close(self):
+        self._rows = []
+        self._idx = 0
+
+class TursoConnection:
+    """Adaptador de conexión libSQL compatible con interfaz sqlite3."""
+    def __init__(self, client):
+        self._client = client
+        self._closed = False
+        self.row_factory = None
+
+    def cursor(self):
+        if self._closed:
+            raise sqlite3.ProgrammingError("Cannot operate on a closed database.")
+        return TursoCursor(self._client)
+
+    def execute(self, sql, params=None):
+        cur = self.cursor()
+        return cur.execute(sql, params)
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        self._closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 def get_db():
     global _initializing
+
+    # 1. Intentar conexión a Turso libSQL si las variables de entorno existen
+    turso_url = os.environ.get("TURSO_DATABASE_URL")
+    turso_token = os.environ.get("TURSO_AUTH_TOKEN")
+    if turso_url and turso_token and libsql_client is not None:
+        try:
+            client = get_turso_client()
+            if client is not None:
+                conn = TursoConnection(client)
+                if not _initializing:
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
+                        if not cursor.fetchone():
+                            _initializing = True
+                            init_db()
+                            _initializing = False
+                        else:
+                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")
+                            if not cursor.fetchone():
+                                cursor.execute("""
+                                CREATE TABLE IF NOT EXISTS favorites (
+                                    id TEXT PRIMARY KEY,
+                                    user_id TEXT NOT NULL,
+                                    club_id TEXT,
+                                    event_id TEXT,
+                                    created_at TEXT NOT NULL,
+                                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                                );
+                                """)
+                                cursor.execute("CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);")
+                                conn.commit()
+                    except Exception:
+                        _initializing = False
+                return conn
+        except Exception as e:
+            print(f"[Aviso Base de Datos] Error al conectar con Turso libSQL ({e}). Utilizando base de datos local SQLite.")
+
+    # 2. Conexión local SQLite transparente con fallback seguro (talentolive.db / grada_directo.db)
     if not os.path.exists(DB_PATH) and os.path.exists(LEGACY_DB_PATH):
         import shutil
         try:
             shutil.copy2(LEGACY_DB_PATH, DB_PATH)
         except Exception:
             pass
-    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+
+    target_local_db = DB_PATH
+    if not os.path.exists(target_local_db) and os.path.exists(LEGACY_DB_PATH):
+        target_local_db = LEGACY_DB_PATH
+
+    conn = sqlite3.connect(target_local_db, timeout=10.0)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -44,6 +269,21 @@ def get_db():
                 _initializing = True
                 init_db()
                 _initializing = False
+            else:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")
+                if not cursor.fetchone():
+                    cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS favorites (
+                        id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        club_id TEXT,
+                        event_id TEXT,
+                        created_at TEXT NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    );
+                    """)
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);")
+                    conn.commit()
         except Exception:
             _initializing = False
 
@@ -159,6 +399,20 @@ def init_db():
             cursor.execute("ALTER TABLE users ADD COLUMN favorite_clubs TEXT DEFAULT '[]';")
             conn.commit()
 
+        # Tabla de clubes y eventos favoritos de los aficionados
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS favorites (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            club_id TEXT,
+            event_id TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);")
+        conn.commit()
+
         # Tabla de sesiones persistentes
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
@@ -221,6 +475,56 @@ def init_db():
         );
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sponsor_leads_time ON sponsor_leads(created_at);")
+
+        # Tabla oficial de clubes y canales
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clubs (
+            id TEXT PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            shield_url TEXT DEFAULT '',
+            shield_icon TEXT DEFAULT '🛡️',
+            location TEXT DEFAULT '',
+            province_id TEXT DEFAULT '',
+            province_name TEXT DEFAULT '',
+            ccaa_id TEXT DEFAULT '',
+            ccaa_name TEXT DEFAULT '',
+            category TEXT DEFAULT '',
+            sport_id TEXT DEFAULT 'futbol',
+            sport_name TEXT DEFAULT 'Fútbol',
+            sport_icon TEXT DEFAULT '⚽',
+            channel_url TEXT DEFAULT '',
+            is_verified INTEGER DEFAULT 1,
+            description TEXT DEFAULT '',
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        );
+        """)
+        cursor.execute("PRAGMA table_info(clubs);")
+        club_cols = [row[1] for row in cursor.fetchall()]
+        if "channel_url" not in club_cols:
+            cursor.execute("ALTER TABLE clubs ADD COLUMN channel_url TEXT DEFAULT '';")
+        if "modality" not in club_cols:
+            cursor.execute("ALTER TABLE clubs ADD COLUMN modality TEXT DEFAULT '';")
+        if "discipline" not in club_cols:
+            cursor.execute("ALTER TABLE clubs ADD COLUMN discipline TEXT DEFAULT '';")
+        if "is_active" not in club_cols:
+            cursor.execute("ALTER TABLE clubs ADD COLUMN is_active INTEGER DEFAULT 1;")
+        if "approved_by_admin" not in club_cols:
+            cursor.execute("ALTER TABLE clubs ADD COLUMN approved_by_admin INTEGER DEFAULT 1;")
+
+        # Tabla de mensajes del chat de comunidad del club (independiente del chat de partido)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS club_chat_messages (
+            id TEXT PRIMARY KEY,
+            club_id TEXT NOT NULL,
+            user_id TEXT,
+            user_name TEXT NOT NULL,
+            user_role TEXT DEFAULT 'viewer',
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_club_chat_time ON club_chat_messages(club_id, created_at);")
         
         # Dejar libre el patrocinador de evt-1 para mostrar la franja de espacio publicitario disponible
         try:
@@ -358,56 +662,6 @@ def init_db():
         """)
         conn.commit()
 
-        # Tabla oficial de clubes y canales
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clubs (
-            id TEXT PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            shield_url TEXT DEFAULT '',
-            shield_icon TEXT DEFAULT '🛡️',
-            location TEXT DEFAULT '',
-            province_id TEXT DEFAULT '',
-            province_name TEXT DEFAULT '',
-            ccaa_id TEXT DEFAULT '',
-            ccaa_name TEXT DEFAULT '',
-            category TEXT DEFAULT '',
-            sport_id TEXT DEFAULT 'futbol',
-            sport_name TEXT DEFAULT 'Fútbol',
-            sport_icon TEXT DEFAULT '⚽',
-            channel_url TEXT DEFAULT '',
-            is_verified INTEGER DEFAULT 1,
-            description TEXT DEFAULT '',
-            user_id TEXT,
-            created_at TEXT NOT NULL
-        );
-        """)
-        cursor.execute("PRAGMA table_info(clubs);")
-        club_cols = [row[1] for row in cursor.fetchall()]
-        if "channel_url" not in club_cols:
-            cursor.execute("ALTER TABLE clubs ADD COLUMN channel_url TEXT DEFAULT '';")
-        if "modality" not in club_cols:
-            cursor.execute("ALTER TABLE clubs ADD COLUMN modality TEXT DEFAULT '';")
-        if "discipline" not in club_cols:
-            cursor.execute("ALTER TABLE clubs ADD COLUMN discipline TEXT DEFAULT '';")
-        if "is_active" not in club_cols:
-            cursor.execute("ALTER TABLE clubs ADD COLUMN is_active INTEGER DEFAULT 1;")
-        if "approved_by_admin" not in club_cols:
-            cursor.execute("ALTER TABLE clubs ADD COLUMN approved_by_admin INTEGER DEFAULT 1;")
-
-        # Tabla de mensajes del chat de comunidad del club (independiente del chat de partido)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS club_chat_messages (
-            id TEXT PRIMARY KEY,
-            club_id TEXT NOT NULL,
-            user_id TEXT,
-            user_name TEXT NOT NULL,
-            user_role TEXT DEFAULT 'viewer',
-            message TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        );
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_club_chat_time ON club_chat_messages(club_id, created_at);")
-
         # Eliminación estricta de clubes mock y contenidos residuales de prueba
         cursor.execute("""
         DELETE FROM clubs 
@@ -419,12 +673,22 @@ def init_db():
         """)
         cursor.execute("UPDATE clubs SET is_active = 1, approved_by_admin = 1 WHERE is_active IS NULL OR approved_by_admin IS NULL;")
 
+        # Si la tabla de clubes está vacía (ej. nueva BD en Turso), sembrar los 5 clubes oficiales
+        seed_default_production_clubs(cursor)
+        conn.commit()
+
+        # Si la tabla de eventos está vacía (ej. nueva BD en Turso), sincronizar eventos desde local si existe talentolive.db
+        seed_events_from_local_if_empty(cursor)
+        conn.commit()
+
         # Eliminación de eventos que no pertenecen a clubes activos dados de alta y autorizados por el Admin
-        cursor.execute("""
-        DELETE FROM events 
-        WHERE (club_id NOT IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) OR club_id IS NULL)
-          AND (club_name NOT IN (SELECT name FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) OR club_name IS NULL);
-        """)
+        cursor.execute("SELECT COUNT(*) FROM clubs WHERE is_active = 1 AND approved_by_admin = 1;")
+        if cursor.fetchone()[0] > 0:
+            cursor.execute("""
+            DELETE FROM events 
+            WHERE (club_id NOT IN (SELECT id FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) OR club_id IS NULL)
+              AND (club_name NOT IN (SELECT name FROM clubs WHERE is_active = 1 AND approved_by_admin = 1) OR club_name IS NULL);
+            """)
 
         # Normalizar club_id en eventos restantes si estuviera vacío
         cursor.execute("""
@@ -513,6 +777,83 @@ def seed_default_users(cursor):
             u.get("is_verified", 0),
             now_iso
         ))
+
+def seed_default_production_clubs(cursor):
+    """Siembra los 5 clubes oficiales si la tabla clubs está vacía (ej. nueva BD en Turso)."""
+    cursor.execute("SELECT COUNT(*) FROM clubs;")
+    if cursor.fetchone()[0] == 0:
+        now_iso = datetime.datetime.now().isoformat()
+        initial_clubs = [
+            (
+                "cf-intercity", "CF INTERCITY", "", "🔵⚪", "Alicante",
+                "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
+                "Segunda Federación (Grupo 3)", "futbol", "Fútbol", "⚽",
+                "https://www.youtube.com/@CFINTERCITY", 1,
+                "El Club de Fútbol Intercity es un club de fútbol español con sede en Alicante, fundado en 2017. Es el primer equipo de fútbol en cotizar en BME Growth.",
+                now_iso
+            ),
+            (
+                "real-federacion-espanola-de-boxeo-rfebox", "Real Federación Española de Boxeo RFEBox", "", "🔵⚪", "España",
+                "madrid", "Madrid", "madrid", "Comunidad de Madrid",
+                "Nacional", "contacto", "Boxeo y deportes de contacto", "🥊",
+                "https://www.youtube.com/@RFEBox", 1,
+                "La Real Federación Española de Boxeo es el máximo órgano regulador del boxeo en España, adscrito al CSD y al COE.",
+                now_iso
+            ),
+            (
+                "climent-club", "CLIMENT CLUB", "", "🔵⚪", "Alicante",
+                "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
+                "Nacional", "contacto", "Boxeo y deportes de contacto", "🥊",
+                "https://www.youtube.com/@CLIMENTCLUBspain", 1,
+                "Climent Club es un reconocido centro de entrenamiento de artes marciales mixtas (MMA) y disciplinas de contacto en Alicante, cuna de campeones como Ilia Topuria.",
+                now_iso
+            ),
+            (
+                "lucentum-alicante", "Lucentum Alicante", "", "🔵⚪", "Alicante",
+                "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
+                "Primera FEB", "baloncesto", "Baloncesto", "🏀",
+                "https://www.youtube.com/@fundlucentum", 1,
+                "El Club Baloncesto Lucentum Alicante milita en la Primera FEB, referente del baloncesto en la Comunidad Valenciana.",
+                now_iso
+            ),
+            (
+                "cbf-elda-prestigio", "CBF Elda Prestigio", "", "🔵⚪", "Elda/Alicante",
+                "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
+                "Liga Guerreras Iberdrola/División de Honor Femenina", "balonmano", "Balonmano", "🤾",
+                "https://www.youtube.com/@cbfeldaprestigio", 1,
+                "El CBF Elda Prestigio es un histórico club de balonmano femenino español en la máxima categoría nacional (Liga Guerreras Iberdrola).",
+                now_iso
+            )
+        ]
+        for cl in initial_clubs:
+            cursor.execute("""
+            INSERT INTO clubs (
+                id, name, shield_url, shield_icon, location,
+                province_id, province_name, ccaa_id, ccaa_name,
+                category, sport_id, sport_name, sport_icon,
+                channel_url, is_verified, description, created_at,
+                modality, discipline, is_active, approved_by_admin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', 1, 1);
+            """, cl)
+
+def seed_events_from_local_if_empty(cursor):
+    """Si la tabla events está vacía (ej. nueva BD en Turso) pero existe talentolive.db localmente, migra los eventos existentes."""
+    cursor.execute("SELECT COUNT(*) FROM events WHERE id != 'evt-elche-villarreal-juv';")
+    if cursor.fetchone()[0] == 0 and os.path.exists(DB_PATH):
+        try:
+            local_conn = sqlite3.connect(DB_PATH)
+            local_conn.row_factory = sqlite3.Row
+            l_cur = local_conn.cursor()
+            l_cur.execute("SELECT * FROM events")
+            local_events = [dict(r) for r in l_cur.fetchall()]
+            local_conn.close()
+            for ev in local_events:
+                cols = list(ev.keys())
+                placeholders = ", ".join(["?"] * len(cols))
+                col_names = ", ".join(cols)
+                cursor.execute(f"INSERT OR IGNORE INTO events ({col_names}) VALUES ({placeholders})", list(ev.values()))
+        except Exception:
+            pass
 
 def seed_sample_events(cursor):
     sample_events = [
@@ -1734,7 +2075,7 @@ def list_all_clubs(include_inactive: bool = False):
         conn.close()
 
 def get_user_favorite_clubs(user_id: str) -> list:
-    """Obtiene la lista de clubes favoritos de un usuario."""
+    """Obtiene la lista de clubes favoritos de un usuario (compatible con columna JSON y tabla favorites)."""
     conn = get_db()
     try:
         cursor = conn.cursor()
@@ -1742,21 +2083,44 @@ def get_user_favorite_clubs(user_id: str) -> list:
         row = cursor.fetchone()
         if row and row[0]:
             try:
-                return json.loads(row[0])
+                favs = json.loads(row[0])
+                if isinstance(favs, list) and len(favs) > 0:
+                    return favs
             except Exception:
-                return []
+                pass
+        # Fallback a tabla relacional favorites si estuviera vacío en users
+        try:
+            cursor.execute("SELECT club_id FROM favorites WHERE user_id = ? AND club_id IS NOT NULL AND club_id != ''", (user_id,))
+            fav_rows = cursor.fetchall()
+            if fav_rows:
+                return [r[0] for r in fav_rows if r[0]]
+        except Exception:
+            pass
         return []
     finally:
         conn.close()
 
 def save_user_favorite_clubs(user_id: str, clubs: list) -> bool:
-    """Guarda la lista de clubes favoritos de un usuario en SQLite."""
+    """Guarda la lista de clubes favoritos de un usuario en SQLite o Turso libSQL."""
     conn = get_db()
     try:
         cursor = conn.cursor()
         clubs_clean = [str(c).strip() for c in clubs if str(c).strip()]
         clubs_json = json.dumps(clubs_clean, ensure_ascii=False)
         cursor.execute("UPDATE users SET favorite_clubs = ? WHERE id = ?", (clubs_json, user_id))
+
+        # Mantener sincronizada la tabla relacional favorites
+        try:
+            cursor.execute("DELETE FROM favorites WHERE user_id = ? AND (club_id IS NOT NULL OR event_id IS NULL)", (user_id,))
+            now_iso = datetime.datetime.now().isoformat()
+            for club_id in clubs_clean:
+                fav_id = f"fav-{user_id}-{club_id}"
+                cursor.execute(
+                    "INSERT OR REPLACE INTO favorites (id, user_id, club_id, created_at) VALUES (?, ?, ?, ?)",
+                    (fav_id, user_id, club_id, now_iso)
+                )
+        except Exception:
+            pass
         conn.commit()
         return True
     finally:
