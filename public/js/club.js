@@ -1,5 +1,5 @@
 /**
- * SportsLive - Controlador de la Página de Club / Canal Favorito (club.html)
+ * LiveSports - Controlador de la Página de Club / Canal Favorito (club.html)
  * Jerarquía de contenidos (Nivel 1, Nivel 2, Nivel 3) y Doble Sistema de Chat
  */
 
@@ -140,7 +140,7 @@ function renderUserHeader(user) {
     if (user.role === 'admin') {
       zone.innerHTML = `
         <div class="capsule-dropdown-wrap" id="wrap-admin-user">
-          <button type="button" class="capsule-btn account-capsule-btn role-admin" id="btn-header-admin-user" aria-haspopup="true" aria-expanded="false" title="👑 Administrador General de SportsLive">
+          <button type="button" class="capsule-btn account-capsule-btn role-admin" id="btn-header-admin-user" aria-haspopup="true" aria-expanded="false" title="👑 Administrador General de LiveSports">
             <span class="account-icon">👑</span>
             <span id="account-btn-label">Admin</span>
             <span class="capsule-btn-arrow">⌄</span>
@@ -265,7 +265,7 @@ async function loadClubProfile(clubIdOrName) {
   try {
     const res = await fetch(`/api/clubs/${encodeURIComponent(clubIdOrName)}`);
     if (!res.ok) {
-      showToast('Club no encontrado en el catálogo de SportsLive', 'error');
+      showToast('Club no encontrado en el catálogo de LiveSports', 'error');
       return;
     }
     const club = await res.json();
@@ -315,7 +315,7 @@ function renderClubHeader(club) {
   if (catEl) catEl.textContent = `${club.sport_icon || '🏅'} ${club.sport_name || 'Deporte Base'} • ${club.category || 'Categoría Oficial'}`;
 
   const descEl = document.getElementById('club-description-text');
-  if (descEl) descEl.textContent = club.description || `Canal oficial de ${club.name} en la plataforma SportsLive.`;
+  if (descEl) descEl.textContent = club.description || `Canal oficial de ${club.name} en la plataforma LiveSports.`;
 
   // Botón de Canal de YouTube
   const ytBtn = document.getElementById('btn-club-youtube');
@@ -346,7 +346,7 @@ function renderClubHeader(club) {
 function isClubFollowed(clubName) {
   if (!clubName) return false;
   try {
-    const list = JSON.parse(localStorage.getItem('sportslive_favorite_clubs') || localStorage.getItem('talentolive_favorite_clubs') || '[]');
+    const list = JSON.parse(localStorage.getItem('livesports_favorite_clubs') || localStorage.getItem('sportslive_favorite_clubs') || localStorage.getItem('talentolive_favorite_clubs') || '[]');
     return list.includes(clubName);
   } catch (e) {
     return false;
@@ -379,7 +379,7 @@ async function toggleFollowCurrentClub() {
   const clubName = clubState.currentClub.name;
   let list = [];
   try {
-    list = JSON.parse(localStorage.getItem('sportslive_favorite_clubs') || localStorage.getItem('talentolive_favorite_clubs') || '[]');
+    list = JSON.parse(localStorage.getItem('livesports_favorite_clubs') || localStorage.getItem('sportslive_favorite_clubs') || localStorage.getItem('talentolive_favorite_clubs') || '[]');
   } catch (e) {
     list = [];
   }
@@ -396,6 +396,7 @@ async function toggleFollowCurrentClub() {
     showToast(`¡Ahora sigues a ${clubName}! Recibirás avisos de sus directos`, 'success');
   }
 
+  localStorage.setItem('livesports_favorite_clubs', JSON.stringify(list));
   localStorage.setItem('sportslive_favorite_clubs', JSON.stringify(list));
   localStorage.setItem('talentolive_favorite_clubs', JSON.stringify(list));
   if (clubState.currentUser && clubState.currentUser.id) {
@@ -872,7 +873,7 @@ async function handleSendCommunityMessage(e) {
 
   // Moderación estricta en cliente
   if (checkOffensiveLanguageClient(text)) {
-    showToast('Tu mensaje infringe las normas de respeto deportivo de SportsLive.', 'error');
+    showToast('Tu mensaje infringe las normas de respeto deportivo de LiveSports.', 'error');
     return;
   }
 
@@ -885,7 +886,7 @@ async function handleSendCommunityMessage(e) {
   const clubId = clubState.currentClub.id || clubState.currentClub.name;
 
   const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('talentolive_token') || localStorage.getItem('sportslive_token');
+  const token = localStorage.getItem('livesports_token') || localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token') || localStorage.getItem('sportslive_token') || localStorage.getItem('talentolive_token');
   if (token) {
     headers['Authorization'] = 'Bearer ' + token;
   }

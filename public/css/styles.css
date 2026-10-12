@@ -1,5 +1,5 @@
 /* ==========================================================
-   SportsLive - Estilos CSS Modernos para Deportes en Directo
+   LiveSports - Estilos CSS Modernos para Deportes en Directo
    Paleta: #0f172a (fondo), #1e293b (contenedores), #38bdf8 (acento celeste)
    ========================================================== */
 
@@ -3362,7 +3362,7 @@ iframe#main-player-iframe {
   margin-left: 0 !important;
   margin-right: 0 !important;
   width: 100% !important;
-  max-width: 680px !important;
+  max-width: 100% !important;
   box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
   display: flex;
   align-items: center;
@@ -3449,6 +3449,209 @@ iframe#main-player-iframe {
   color: #38bdf8;
   border-color: #38bdf8;
   box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+}
+
+/* ==========================================================
+   REDUCCIÓN AL 50% Y DOBLE COLUMNA PARA TARJETAS DE FAVORITOS
+   "En Directo y Última Semana de tus Favoritos"
+   ========================================================== */
+
+/* Rejilla de tarjetas de medios favoritos dentro del banner destacado */
+.fav-media-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.85rem;
+  box-sizing: border-box;
+}
+
+/* Rejilla principal en modo catálogo de favoritos */
+.matches-grid.favorites-view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1100px) {
+  .matches-grid.favorites-view-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .fav-media-cards-grid,
+  .matches-grid.favorites-view-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+}
+
+/* Escalado al 50% del footprint de tarjeta, altura de vídeo y tipografía */
+.favorites-view-grid .match-card,
+.fav-media-cards-grid .match-card,
+.match-card.fav-scaled-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Miniatura reducida al 50% de altura (~110px frente a ~220px habitual) */
+.favorites-view-grid .match-card .card-thumb-wrapper,
+.fav-media-cards-grid .match-card .card-thumb-wrapper,
+.match-card.fav-scaled-card .card-thumb-wrapper {
+  max-height: 110px;
+  aspect-ratio: 16 / 9;
+}
+
+.favorites-view-grid .match-card .card-badges-top,
+.fav-media-cards-grid .match-card .card-badges-top,
+.match-card.fav-scaled-card .card-badges-top {
+  padding: 0.22rem 0.35rem 0.4rem;
+}
+
+.favorites-view-grid .match-card .card-badge-status,
+.fav-media-cards-grid .match-card .card-badge-status,
+.match-card.fav-scaled-card .card-badge-status {
+  font-size: 0.58rem;
+  padding: 0.1rem 0.35rem;
+  gap: 0.2rem;
+}
+
+.favorites-view-grid .match-card .card-badge-platform,
+.fav-media-cards-grid .match-card .card-badge-platform,
+.match-card.fav-scaled-card .card-badge-platform {
+  font-size: 0.55rem;
+  padding: 0.1rem 0.3rem;
+}
+
+.favorites-view-grid .match-card .play-overlay-icon,
+.fav-media-cards-grid .match-card .play-overlay-icon,
+.match-card.fav-scaled-card .play-overlay-icon {
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+}
+
+.favorites-view-grid .match-card .card-body,
+.fav-media-cards-grid .match-card .card-body,
+.match-card.fav-scaled-card .card-body {
+  padding: 0.45rem 0.6rem;
+  gap: 0.28rem;
+}
+
+.favorites-view-grid .match-card .card-match-title,
+.fav-media-cards-grid .match-card .card-match-title,
+.match-card.fav-scaled-card .card-match-title {
+  font-size: 0.78rem;
+  line-height: 1.25;
+  margin-top: 0;
+  margin-bottom: 0;
+  -webkit-line-clamp: 2;
+}
+
+.favorites-view-grid .match-card .card-meta-line,
+.fav-media-cards-grid .match-card .card-meta-line,
+.match-card.fav-scaled-card .card-meta-line {
+  font-size: 0.65rem;
+  gap: 0.25rem;
+}
+
+.favorites-view-grid .match-card .sport-tag,
+.fav-media-cards-grid .match-card .sport-tag,
+.match-card.fav-scaled-card .sport-tag {
+  font-size: 0.62rem;
+  padding: 0.05rem 0.3rem;
+}
+
+.favorites-view-grid .match-card .card-fav-team-badge,
+.fav-media-cards-grid .match-card .card-fav-team-badge,
+.match-card.fav-scaled-card .card-fav-team-badge {
+  font-size: 0.58rem !important;
+  padding: 0.05rem 0.3rem !important;
+}
+
+.favorites-view-grid .match-card .club-badge-link,
+.fav-media-cards-grid .match-card .club-badge-link,
+.match-card.fav-scaled-card .club-badge-link {
+  font-size: 0.62rem !important;
+  padding: 1px 5px !important;
+}
+
+.favorites-view-grid .match-card .card-teams-scoreboard,
+.fav-media-cards-grid .match-card .card-teams-scoreboard,
+.match-card.fav-scaled-card .card-teams-scoreboard {
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+}
+
+.favorites-view-grid .match-card .team-row,
+.fav-media-cards-grid .match-card .team-row,
+.match-card.fav-scaled-card .team-row {
+  padding: 0.05rem 0;
+}
+
+.favorites-view-grid .match-card .team-info,
+.fav-media-cards-grid .match-card .team-info,
+.match-card.fav-scaled-card .team-info {
+  font-size: 0.72rem;
+  gap: 0.25rem;
+}
+
+.favorites-view-grid .match-card .team-score,
+.fav-media-cards-grid .match-card .team-score,
+.match-card.fav-scaled-card .team-score {
+  font-size: 0.78rem;
+}
+
+.favorites-view-grid .match-card .card-venue,
+.fav-media-cards-grid .match-card .card-venue,
+.match-card.fav-scaled-card .card-venue {
+  font-size: 0.62rem;
+  gap: 0.2rem;
+}
+
+.favorites-view-grid .match-card .club-sponsor-strip,
+.fav-media-cards-grid .match-card .club-sponsor-strip,
+.match-card.fav-scaled-card .club-sponsor-strip {
+  padding: 0.18rem 0.4rem;
+  font-size: 0.62rem;
+}
+
+.favorites-view-grid .match-card .card-actions,
+.fav-media-cards-grid .match-card .card-actions,
+.match-card.fav-scaled-card .card-actions {
+  gap: 0.3rem;
+  padding-top: 0.2rem;
+}
+
+.favorites-view-grid .match-card .btn-watch,
+.fav-media-cards-grid .match-card .btn-watch,
+.match-card.fav-scaled-card .btn-watch {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.68rem;
+  height: 27px;
+  border-radius: 5px;
+}
+
+.favorites-view-grid .match-card .btn-bell,
+.fav-media-cards-grid .match-card .btn-bell,
+.match-card.fav-scaled-card .btn-bell {
+  width: 27px;
+  height: 27px;
+  font-size: 0.72rem;
+  border-radius: 5px;
+}
+
+.favorites-view-grid .match-card .action-btn-sm,
+.fav-media-cards-grid .match-card .action-btn-sm,
+.match-card.fav-scaled-card .action-btn-sm {
+  width: 27px;
+  height: 27px;
+  font-size: 0.72rem;
 }
 
 /* Modal de Favoritos */

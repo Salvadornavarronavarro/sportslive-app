@@ -1,5 +1,5 @@
 """
-Módulo de moderación y filtro antispam para SportsLive.
+Módulo de moderación y filtro antispam para LiveSports.
 Detecta palabras ofensivas, descalificaciones y lenguaje inapropiado en retransmisiones deportivas.
 """
 import re

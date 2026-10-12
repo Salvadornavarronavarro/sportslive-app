@@ -1,5 +1,5 @@
 /**
- * SportsLive - Aplicación Web Principal
+ * LiveSports - Aplicación Web Principal
  * Gestión de retransmisiones de deporte base en directo, filtros en cascada,
  * ingesta inteligente de URLs con metadatos y reproductores embebidos.
  */
@@ -30,8 +30,8 @@ const state = {
   activeClubMode: null, // ID o Nombre del club en modo monográfico exclusivo
   activeClubFilter: null, // Filtro activo por club o monográfico
   activeModalEvent: null,
-  currentUser: JSON.parse(localStorage.getItem('sportslive_current_user') || 'null'),
-  token: localStorage.getItem('sportslive_auth_token') || localStorage.getItem('talentolive_auth_token') || localStorage.getItem('grada_auth_token') || '',
+  currentUser: JSON.parse(localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null'),
+  token: localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token') || localStorage.getItem('talentolive_auth_token') || localStorage.getItem('grada_auth_token') || '',
   adminMatches: [],
   adminUsers: [],
   sidebarTab: 'featured', // 'featured' o 'chat'
@@ -42,15 +42,15 @@ const state = {
 };
 
 /* ==========================================================
-   GESTIÓN DE FAVORITOS AISLADOS POR USUARIO O INVITADO
+   GESTIÓN DE FAVORITOS AISLADOS POR USUARIO O INVITADO (LIVESPORTS)
    ========================================================== */
 
-function getSportsLiveUser() {
+function getLiveSportsUser() {
   if (typeof state !== 'undefined' && state && state.currentUser) {
     return state.currentUser;
   }
   try {
-    const raw = localStorage.getItem('sportslive_current_user');
+    const raw = localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user');
     if (raw) {
       const u = JSON.parse(raw);
       if (u && (u.id || u.username)) {
@@ -61,16 +61,21 @@ function getSportsLiveUser() {
   } catch (_) {}
   return null;
 }
+function getSportsLiveUser() { return getLiveSportsUser(); }
 
-function isSportsLiveAuthenticated() {
-  const u = getSportsLiveUser();
+function isLiveSportsAuthenticated() {
+  const u = getLiveSportsUser();
   return !!(u && (u.id || u.username) && u.role && u.role !== 'guest');
 }
+function isSportsLiveAuthenticated() { return isLiveSportsAuthenticated(); }
+
+window.getLiveSportsUser = getLiveSportsUser;
 window.getSportsLiveUser = getSportsLiveUser;
+window.isLiveSportsAuthenticated = isLiveSportsAuthenticated;
 window.isSportsLiveAuthenticated = isSportsLiveAuthenticated;
 
 function getFavoritesStorageKey(type = 'clubs') {
-  const user = getSportsLiveUser();
+  const user = getLiveSportsUser();
   if (user && user.id && user.role !== 'guest') {
     return (type === 'clubs') ? ('favorite_clubs_' + user.id) : ('favorites_' + user.id);
   }
@@ -78,8 +83,8 @@ function getFavoritesStorageKey(type = 'clubs') {
 }
 
 function loadUserFavorites() {
-  const user = getSportsLiveUser();
-  const authenticated = isSportsLiveAuthenticated();
+  const user = getLiveSportsUser();
+  const authenticated = isLiveSportsAuthenticated();
 
   // Si no hay sesión activa (usuario invitado / no autenticado):
   // El contador debe estar a 0 y no tener clubes ni partidos favoritos guardados
@@ -88,8 +93,10 @@ function loadUserFavorites() {
     state.favoriteClubs = [];
     state.favoritesOnlyMode = false;
     try {
+      localStorage.removeItem('livesports_favorite_clubs');
       localStorage.removeItem('sportslive_favorite_clubs');
       localStorage.removeItem('talentolive_favorite_clubs');
+      localStorage.removeItem('livesports_favorites');
       localStorage.removeItem('sportslive_favorites');
       localStorage.removeItem('talentolive_favorites');
       localStorage.removeItem('favorite_clubs_guest');
@@ -157,8 +164,8 @@ function loadUserFavorites() {
 }
 
 function saveUserFavorites(type = 'both') {
-  const user = getSportsLiveUser();
-  if (!isSportsLiveAuthenticated() || !user || !user.id) return; // En modo invitado no se persisten favoritos
+  const user = getLiveSportsUser();
+  if (!isLiveSportsAuthenticated() || !user || !user.id) return; // En modo invitado no se persisten favoritos
 
   if (type === 'matches' || type === 'both') {
     const matchesKey = 'favorites_' + user.id;
@@ -203,7 +210,7 @@ function saveUserFavorites(type = 'both') {
 loadUserFavorites();
 
 // Conjunto de partidos ya notificados para evitar spam
-const notifiedMatches = new Set(JSON.parse(sessionStorage.getItem('sportslive_notified_matches') || sessionStorage.getItem('talentolive_notified_matches') || sessionStorage.getItem('grada_notified_matches') || '[]'));
+const notifiedMatches = new Set(JSON.parse(sessionStorage.getItem('livesports_notified_matches') || sessionStorage.getItem('sportslive_notified_matches') || sessionStorage.getItem('talentolive_notified_matches') || sessionStorage.getItem('grada_notified_matches') || '[]'));
 
 /* ==========================================================
    GESTIÓN DE MODO INVITADO, BARRERAS DE CONVERSIÓN Y DESCUBRIMIENTO
@@ -268,10 +275,10 @@ function updateGuestFloatingBar() {
 
   let isDismissed = false;
   try {
-    isDismissed = sessionStorage.getItem('sportslive_guest_bar_dismissed') === '1';
+    isDismissed = (sessionStorage.getItem('livesports_guest_bar_dismissed') === '1' || sessionStorage.getItem('sportslive_guest_bar_dismissed') === '1');
   } catch (_) {}
 
-  if (!isSportsLiveAuthenticated() && !isDismissed) {
+  if (!isLiveSportsAuthenticated() && !isDismissed) {
     bar.style.display = 'block';
   } else {
     bar.style.display = 'none';
@@ -280,6 +287,7 @@ function updateGuestFloatingBar() {
 
 function dismissGuestFloatingBar() {
   try {
+    sessionStorage.setItem('livesports_guest_bar_dismissed', '1');
     sessionStorage.setItem('sportslive_guest_bar_dismissed', '1');
   } catch (_) {}
   const bar = document.getElementById('guest-floating-bar');
@@ -303,7 +311,7 @@ function renderDiscoveryBanner() {
   if (!discoveryBanner) return;
 
   // Solo mostrar en modo invitado y cuando no se esté en monográfico de club
-  if (!isSportsLiveAuthenticated() && !state.activeClubMode) {
+  if (!isLiveSportsAuthenticated() && !state.activeClubMode) {
     discoveryBanner.style.display = 'flex';
     if (cardsGrid) {
       const cleanEvents = (state.allEvents || []).filter(e => {
@@ -466,7 +474,7 @@ function initFavoritesHeaderListeners() {
   });
 
   // Reset visual del contador en modo invitado si no está autenticado
-  if (!isSportsLiveAuthenticated()) {
+  if (!isLiveSportsAuthenticated()) {
     const badge = document.getElementById('badge-fav-count');
     if (badge) {
       badge.textContent = '0';
@@ -1330,7 +1338,7 @@ function handleFavoritesClick(event) {
     closeMobileNav();
   }
 
-  const authenticated = isSportsLiveAuthenticated();
+  const authenticated = isLiveSportsAuthenticated();
 
   // Si el usuario es Administrador o cualquier Usuario registrado (currentUser && currentUser.role !== 'guest'):
   // Al pulsar MIS FAVORITOS, NUNCA debe saltar el modal de registro/inscripción.
@@ -1352,7 +1360,7 @@ window.handleFavoritesHeaderClick = handleFavoritesClick;
 
 async function openFavoritesModal() {
   if (typeof closeMobileNav === 'function') closeMobileNav();
-  const authenticated = isSportsLiveAuthenticated();
+  const authenticated = isLiveSportsAuthenticated();
 
   // Si el usuario no está autenticado o es invitado, abrir modal de captación o registro
   if (!authenticated) {
@@ -1404,7 +1412,7 @@ function closeFavoritesModal() {
 
   state.favoritesChangedWhileModalOpen = false;
 
-  const authenticated = isSportsLiveAuthenticated();
+  const authenticated = isLiveSportsAuthenticated();
   if (authenticated) {
     const hasFavClubs = state.favoriteClubs && state.favoriteClubs.length > 0;
     const hasFavMatches = state.favorites && state.favorites.length > 0;
@@ -1687,7 +1695,7 @@ async function toggleFavoriteClub(clubName, event) {
   if (!clubName) return;
 
   // Bloqueo de captación: Si es un usuario invitado no autenticado, no guardar datos y abrir modal
-  if (!isSportsLiveAuthenticated()) {
+  if (!isLiveSportsAuthenticated()) {
     openGuestLeadModal('follow_club', clubName);
     return;
   }
@@ -2075,7 +2083,7 @@ function updateFilterButtonsVisual() {
   // 4. Botón MIS FAVORITOS (Header)
   const favBtn = document.getElementById('btn-header-favorites');
   const favBadge = document.getElementById('badge-fav-count');
-  const isGuest = !isSportsLiveAuthenticated();
+  const isGuest = !isLiveSportsAuthenticated();
   const hasFavs = !isGuest && (((state.favoriteClubs || []).length + (state.favorites || []).length) > 0);
 
   if (favBadge) {
@@ -2284,7 +2292,7 @@ function applyFilters() {
 
   if (sectionTitle) {
     if (isFavoritesView) {
-      sectionTitle.innerHTML = '⭐ En Directo y Emisiones de tus Favoritos';
+      sectionTitle.innerHTML = '⭐ En Directo y Última Semana de tus Favoritos';
     } else {
       sectionTitle.textContent = 'Partidos en Directo';
     }
@@ -2300,6 +2308,29 @@ function applyFilters() {
     const matchEvt = hasFavoriteMatches && state.favorites.includes(e.id);
     return matchClub || matchEvt;
   };
+
+  // Rellenar tarjetas a escala en el banner destacado de favoritos
+  const favMediaGrid = document.getElementById('fav-media-cards-grid');
+  if (favMediaGrid) {
+    if (hasFavorites && !state.activeClubMode) {
+      const favMatches = cleanEvents.filter(isFavoriteEvent);
+      if (favMatches.length > 0) {
+        favMediaGrid.style.display = 'grid';
+        favMediaGrid.innerHTML = '';
+        favMatches.slice(0, 4).forEach((evt, idx) => {
+          const card = createMatchCard(evt, idx);
+          card.classList.add('fav-scaled-card');
+          favMediaGrid.appendChild(card);
+        });
+      } else {
+        favMediaGrid.style.display = 'none';
+        favMediaGrid.innerHTML = '';
+      }
+    } else {
+      favMediaGrid.style.display = 'none';
+      favMediaGrid.innerHTML = '';
+    }
+  }
 
   // MODO CLUB / MONOGRÁFICO DE EQUIPO ACTIVO
   const targetClubMode = state.activeClubMode || state.activeClubFilter;
@@ -2975,7 +3006,7 @@ function updateChatVisibility() {
   const guestPrompt = document.getElementById('chat-guest-prompt');
   const guestPromptText = document.getElementById('chat-guest-prompt-text');
 
-  if (!isSportsLiveAuthenticated()) {
+  if (!isLiveSportsAuthenticated()) {
     if (inputForm) inputForm.style.display = 'none';
     if (guestPrompt) {
       guestPrompt.style.display = 'flex';
@@ -3157,7 +3188,7 @@ async function handleSendChatMessage(e) {
 
   // 2. Filtro estricto de moderación en cliente
   if (checkOffensiveLanguageClient(text)) {
-    const errorNotice = 'Tu comentario infringe las normas de respeto deportivo de SportsLive';
+    const errorNotice = 'Tu comentario infringe las normas de respeto deportivo de LiveSports';
     if (typeof showToast === 'function') {
       showToast(errorNotice, 'error');
     } else {
@@ -3364,7 +3395,7 @@ async function fetchEvents(force = false) {
           <div class="empty-state">
             <div class="empty-icon">⚠️</div>
             <h3>Aplicación abierta directamente como archivo local</h3>
-            <p>Para cargar los partidos y la base de datos, ejecuta <strong>Iniciar_SportsLive.command</strong> o <strong>SportsLive.app</strong> y accede desde <strong>http://localhost:3000</strong>.</p>
+            <p>Para cargar los partidos y la base de datos, ejecuta <strong>Iniciar_LiveSports.command</strong> o <strong>LiveSports.app</strong> y accede desde <strong>http://localhost:3000</strong>.</p>
           </div>
         `;
       } else {
@@ -3372,7 +3403,7 @@ async function fetchEvents(force = false) {
           <div class="empty-state">
             <div class="empty-icon">⚠️</div>
             <h3>No se pudieron cargar los partidos</h3>
-            <p>Por favor comprueba que el servidor de SportsLive esté en ejecución en <strong>http://localhost:3000</strong>.</p>
+            <p>Por favor comprueba que el servidor de LiveSports esté en ejecución en <strong>http://localhost:3000</strong>.</p>
             <button class="btn-upload" style="margin: 1rem auto 0;" onclick="fetchEvents(true)">🔄 Reintentar conexión</button>
           </div>
         `;
@@ -3389,6 +3420,9 @@ window.fetchEvents = fetchEvents;
 function renderEvents(events) {
   const grid = document.getElementById('matches-grid');
   if (!grid) return;
+
+  const isFavoritesView = state.favoritesOnlyMode && (((state.favoriteClubs || []).length + (state.favorites || []).length) > 0);
+  grid.classList.toggle('favorites-view-grid', !!isFavoritesView);
 
   if (!events || events.length === 0) {
     const isCcaaFiltered = state.selectedCcaa && state.selectedCcaa !== 'all';
@@ -3449,7 +3483,7 @@ function getSportDefaultThumbnail(evt) {
 
   return `
     <div class="thumb-default-sport thumb-sport-${sportId}">
-      <img src="${genericThumbUrl}" alt="Fútbol - SportsLive" class="card-thumb-generic-bg" loading="lazy">
+      <img src="${genericThumbUrl}" alt="Fútbol - LiveSports" class="card-thumb-generic-bg" loading="lazy">
       <div class="thumb-sport-watermark" aria-hidden="true">${sportIcon}</div>
       <div class="thumb-sport-pattern" aria-hidden="true"></div>
     </div>
@@ -3461,6 +3495,11 @@ function createMatchCard(evt, index = 0) {
   const card = document.createElement('article');
   card.className = 'match-card';
   card.dataset.id = evt.id;
+
+  const isFavoritesView = state.favoritesOnlyMode && (((state.favoriteClubs || []).length + (state.favorites || []).length) > 0);
+  if (isFavoritesView) {
+    card.classList.add('fav-scaled-card');
+  }
 
   const isLive = evt.status === 'LIVE';
   const isUpcoming = evt.status === 'UPCOMING';
@@ -3976,7 +4015,7 @@ function initIngestionForm() {
         showToast('No se pudo publicar la emisión: ' + err.message, 'error');
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = '🚀 Publicar Emisión Oficial en SportsLive';
+        submitBtn.textContent = '🚀 Publicar Emisión Oficial en LiveSports';
       }
     });
   }
@@ -4258,7 +4297,7 @@ function toggleFavorite(eventId, event, fromModal = false) {
   if (event) event.stopPropagation();
 
   // Bloqueo de captación: Si es un visitante no autenticado, mostrar modal de registro/login
-  if (!isSportsLiveAuthenticated()) {
+  if (!isLiveSportsAuthenticated()) {
     openGuestLeadModal('favorites');
     return;
   }
@@ -4344,7 +4383,7 @@ function shareCurrentEvent() {
   if (!state.activeModalEvent) return;
   const shareData = {
     title: state.activeModalEvent.title,
-    text: `¡Sigue en directo: ${state.activeModalEvent.title} en SportsLive!`,
+    text: `¡Sigue en directo: ${state.activeModalEvent.title} en LiveSports!`,
     url: window.location.href
   };
 
@@ -4473,6 +4512,7 @@ async function initAuthSession() {
       const data = await res.json();
       if (data.authenticated && data.user) {
         state.currentUser = data.user;
+        localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
         localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
         loadUserFavorites();
         await syncUserFavorites();
@@ -4481,6 +4521,8 @@ async function initAuthSession() {
         state.token = '';
         localStorage.removeItem('talentolive_auth_token');
         localStorage.removeItem('grada_auth_token');
+        localStorage.removeItem('livesports_auth_token');
+        localStorage.removeItem('livesports_current_user');
         localStorage.removeItem('sportslive_auth_token');
         localStorage.removeItem('sportslive_current_user');
         loadUserFavorites();
@@ -4523,11 +4565,11 @@ function renderUserHeader() {
   const broadcastBtn = document.getElementById('btn-header-broadcast');
   if (!container) return;
 
-  const authenticated = isSportsLiveAuthenticated();
+  const authenticated = isLiveSportsAuthenticated();
   if (!authenticated) {
     if (broadcastBtn) broadcastBtn.style.display = 'none';
     container.innerHTML = `
-      <button type="button" class="capsule-btn account-capsule-btn btn-header-auth-prominent" id="btn-header-login" onclick="openAuthModal()" title="Iniciar Sesión o Registrarse en SportsLive">
+      <button type="button" class="capsule-btn account-capsule-btn btn-header-auth-prominent" id="btn-header-login" onclick="openAuthModal()" title="Iniciar Sesión o Registrarse en LiveSports">
         <span class="account-icon">👤</span>
         <span id="account-btn-label" class="account-btn-label">Iniciar Sesión</span>
       </button>
@@ -4535,14 +4577,14 @@ function renderUserHeader() {
     return;
   }
 
-  const u = getSportsLiveUser() || state.currentUser;
+  const u = getLiveSportsUser() || state.currentUser;
   const role = u.role;
 
   if (role === 'admin') {
     if (broadcastBtn) broadcastBtn.style.display = 'inline-flex';
     container.innerHTML = `
       <div class="capsule-dropdown-wrap" id="wrap-admin-user">
-        <button type="button" class="capsule-btn account-capsule-btn role-admin" id="btn-header-admin-user" aria-haspopup="true" aria-expanded="false" title="👑 Administrador General de SportsLive">
+        <button type="button" class="capsule-btn account-capsule-btn role-admin" id="btn-header-admin-user" aria-haspopup="true" aria-expanded="false" title="👑 Administrador General de LiveSports">
           <span class="account-icon">👑</span>
           <span id="account-btn-label" class="account-btn-label">Admin</span>
           <span class="capsule-btn-arrow">⌄</span>
@@ -4647,7 +4689,7 @@ function closeAuthModal() {
 
 window.addEventListener('hashchange', () => {
   if (window.location.hash === '#admin-login' || window.location.hash === '#admin') {
-    const u = (typeof getSportsLiveUser === 'function') ? getSportsLiveUser() : (state.currentUser);
+    const u = (typeof getLiveSportsUser === 'function') ? getLiveSportsUser() : (state.currentUser);
     if (u && u.role === 'admin') {
       if (typeof openAdminModal === 'function') openAdminModal();
     } else {
@@ -4718,11 +4760,11 @@ function requestClubKeyInfo(e) {
     if (typeof e.preventDefault === 'function') e.preventDefault();
     if (typeof e.stopPropagation === 'function') e.stopPropagation();
   }
-  const email = 'soporte@sportslive.es';
+  const email = 'soporte@livesports.es';
   const subject = encodeURIComponent('Solicitud de Clave de Emisión Oficial para Club Deportivo');
   const body = encodeURIComponent(
-    'Hola Administración de SportsLive,\n\n' +
-    'Deseamos solicitar la Clave de Autorización Oficial para dar de alta a nuestro Club Deportivo en SportsLive:\n\n' +
+    'Hola Administración de LiveSports,\n\n' +
+    'Deseamos solicitar la Clave de Autorización Oficial para dar de alta a nuestro Club Deportivo en LiveSports:\n\n' +
     '• Nombre Oficial del Club:\n' +
     '• Deporte y Categoría:\n' +
     '• CIF / NIF de la Entidad:\n' +
@@ -4734,7 +4776,7 @@ function requestClubKeyInfo(e) {
   );
   window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
   if (typeof showToast === 'function') {
-    showToast('📧 Redactando solicitud para soporte@sportslive.es...', 'info');
+    showToast('📧 Redactando solicitud para soporte@livesports.es...', 'info');
   }
 }
 window.requestClubKeyInfo = requestClubKeyInfo;
@@ -4803,6 +4845,8 @@ async function handleAdminLoginSubmit(e) {
     state.token = data.token;
     state.currentUser = data.user;
     localStorage.setItem('talentolive_auth_token', data.token);
+    localStorage.setItem('livesports_auth_token', data.token);
+    localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
     localStorage.setItem('sportslive_auth_token', data.token);
     localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
 
@@ -4860,6 +4904,8 @@ async function doLogin(identity, password) {
     state.token = data.token;
     state.currentUser = data.user;
     localStorage.setItem('talentolive_auth_token', data.token);
+    localStorage.setItem('livesports_auth_token', data.token);
+    localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
     localStorage.setItem('sportslive_auth_token', data.token);
     localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
 
@@ -4914,10 +4960,10 @@ async function handleRegisterSubmit(e) {
     }
 
     // Validación de clave de autorización obligatoria para dar de alta clubes verificados
-    const validMasterKeys = ['SPORTSLIVE-CLUB-2026', 'SPORTSLIVE2026'];
+    const validMasterKeys = ['LIVESPORTS-CLUB-2026', 'LIVESPORTS2026', 'SPORTSLIVE-CLUB-2026', 'SPORTSLIVE2026'];
     if (!authKey || !validMasterKeys.includes(authKey)) {
       if (errBox) {
-        errBox.textContent = 'Clave de autorización no válida. Para dar de alta un club oficial contacta con la administración de SportsLive.';
+        errBox.textContent = 'Clave de autorización no válida. Para dar de alta un club oficial contacta con la administración de LiveSports.';
         errBox.style.display = 'block';
       }
       return;
@@ -4944,6 +4990,8 @@ async function handleRegisterSubmit(e) {
     state.token = data.token;
     state.currentUser = data.user;
     localStorage.setItem('talentolive_auth_token', data.token);
+    localStorage.setItem('livesports_auth_token', data.token);
+    localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
     localStorage.setItem('sportslive_auth_token', data.token);
     localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
 
@@ -4959,7 +5007,7 @@ async function handleRegisterSubmit(e) {
     if (role === 'club') {
       showToast(`¡Club ${data.user.club_name} registrado! Acceso concedido a tu Panel de Emisión.`, 'success');
     } else {
-      showToast(`¡Bienvenido a SportsLive, ${data.user.full_name || data.user.username}! Cuenta de aficionado creada.`, 'success');
+      showToast(`¡Bienvenido a LiveSports, ${data.user.full_name || data.user.username}! Cuenta de aficionado creada.`, 'success');
     }
   } catch (err) {
     if (errBox) {
@@ -4979,6 +5027,8 @@ async function logout() {
   state.currentUser = null;
   localStorage.removeItem('talentolive_auth_token');
   localStorage.removeItem('grada_auth_token');
+  localStorage.removeItem('livesports_auth_token');
+  localStorage.removeItem('livesports_current_user');
   localStorage.removeItem('sportslive_auth_token');
   localStorage.removeItem('sportslive_current_user');
 

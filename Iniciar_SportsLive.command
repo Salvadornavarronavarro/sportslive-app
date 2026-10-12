@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# SportsLive - Lanzador Ejecutable para macOS
+# LiveSports - Lanzador Ejecutable para macOS
 # Doble clic en este archivo para iniciar la aplicación web
 # ==========================================================
 
@@ -9,7 +9,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
 echo "=========================================================="
-echo "   📡 INICIANDO SPORTSLIVE - DEPORTE BASE EN VIVO"
+echo "   📡 INICIANDO LIVESPORTS - DEPORTE BASE EN VIVO"
 echo "=========================================================="
 echo ""
 
@@ -23,7 +23,7 @@ if ! "$PYTHON_BIN" --version &> /dev/null; then
 fi
 
 echo "✅ Python 3 detectado: $("$PYTHON_BIN" --version)"
-echo "🚀 Abriendo SportsLive en tu navegador web..."
+echo "🚀 Abriendo LiveSports en tu navegador web..."
 echo ""
 echo "👉 Si no se abre solo, accede manualmente a:"
 echo "   http://localhost:3000"

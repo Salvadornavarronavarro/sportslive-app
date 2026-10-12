@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Punto de entrada para ejecutar SportsLive localmente.
+Punto de entrada para ejecutar LiveSports localmente.
 Lanza el servidor HTTP y abre la aplicación en tu navegador.
 """
 
@@ -19,7 +19,7 @@ from backend.server import run_server
 def open_browser(port):
     time.sleep(0.5)
     url = f"http://localhost:{port}"
-    print(f"\n✨ Abriendo SportsLive en el navegador: {url}")
+    print(f"\n✨ Abriendo LiveSports en el navegador: {url}")
     print("👉 Si tu navegador no se abre automáticamente, entra en esa dirección.\n")
     
     # 1. En macOS, '/usr/bin/open' es el método nativo más seguro y no requiere permisos AppleScript

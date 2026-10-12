@@ -45,7 +45,7 @@ PUBLIC_DIR = os.path.join(BASE_DIR, "public")
 # Registro en memoria de marcas de tiempo de envío de chat para control antispam (cooldown 3s)
 _chat_cooldowns = {}
 
-class SportsLiveHandler(SimpleHTTPRequestHandler):
+class LiveSportsHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=PUBLIC_DIR, **kwargs)
 
@@ -326,8 +326,11 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 if user.get("role") == "admin":
                     admin_key = str(data.get("admin_key") or "").strip()
                     valid_admin_keys = {
+                        os.environ.get("LIVESPORTS_ADMIN_SECRET", "LIVESPORTS-ADMIN-SECURE-2026"),
                         os.environ.get("SPORTSLIVE_ADMIN_SECRET", "SPORTSLIVE-ADMIN-SECURE-2026"),
+                        "ADMIN-LIVESPORTS-MASTER-KEY",
                         "ADMIN-SPORTSLIVE-MASTER-KEY",
+                        "LIVESPORTS-ADMIN-2026",
                         "SPORTSLIVE-ADMIN-2026"
                     }
                     if not admin_key or admin_key not in valid_admin_keys:
@@ -367,12 +370,13 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                         return
 
                     invitation_code = str(data.get("invitation_code") or data.get("auth_key") or "").strip().upper()
-                    master_key = os.environ.get("SPORTSLIVE_CLUB_AUTH_KEY", "SPORTSLIVE-CLUB-2026").strip().upper()
-                    valid_keys = {master_key, "SPORTSLIVE-CLUB-2026", "SPORTSLIVE2026"}
+                    master_key_live = os.environ.get("LIVESPORTS_CLUB_AUTH_KEY", "LIVESPORTS-CLUB-2026").strip().upper()
+                    master_key_sports = os.environ.get("SPORTSLIVE_CLUB_AUTH_KEY", "SPORTSLIVE-CLUB-2026").strip().upper()
+                    valid_keys = {master_key_live, master_key_sports, "LIVESPORTS-CLUB-2026", "LIVESPORTS2026", "SPORTSLIVE-CLUB-2026", "SPORTSLIVE2026"}
                     if not invitation_code or invitation_code not in valid_keys:
                         self._set_cors_and_json(400)
                         self.wfile.write(json.dumps({
-                            "error": "Clave de autorización no válida. Para dar de alta un club oficial contacta con la administración de SportsLive."
+                            "error": "Clave de autorización no válida. Para dar de alta un club oficial contacta con la administración de LiveSports."
                         }, ensure_ascii=False).encode("utf-8"))
                         return
 
@@ -493,7 +497,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     # Filtro de moderación (palabras ofensivas, insultos y descalificaciones)
                     if contains_offensive_language(message_text):
                         self._set_cors_and_json(400)
-                        self.wfile.write(json.dumps({"error": "Tu comentario infringe las normas de respeto deportivo de SportsLive"}).encode("utf-8"))
+                        self.wfile.write(json.dumps({"error": "Tu comentario infringe las normas de respeto deportivo de LiveSports"}).encode("utf-8"))
                         return
 
                     # Cooldown estricto: máximo 1 mensaje cada 3 segundos por usuario o IP
@@ -547,7 +551,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     # Filtro de moderación (palabras ofensivas, insultos y descalificaciones)
                     if contains_offensive_language(message_text):
                         self._set_cors_and_json(400)
-                        self.wfile.write(json.dumps({"error": "Tu comentario infringe las normas de respeto deportivo de SportsLive"}).encode("utf-8"))
+                        self.wfile.write(json.dumps({"error": "Tu comentario infringe las normas de respeto deportivo de LiveSports"}).encode("utf-8"))
                         return
 
                     # Cooldown estricto: máximo 1 mensaje cada 3 segundos por usuario o IP
@@ -825,7 +829,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                 with open(json_path, "w", encoding="utf-8") as f:
                     json.dump(events, f, ensure_ascii=False, indent=2)
 
-                zip_path = os.path.join(compartir_dir, "SportsLive_Paquete_Completo.zip")
+                zip_path = os.path.join(compartir_dir, "LiveSports_Paquete_Completo.zip")
                 with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                     for root, dirs, files in os.walk(BASE_DIR):
                         dirs[:] = [d for d in dirs if d not in ("__pycache__", ".git", "test.iconset")]
@@ -836,11 +840,11 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                             arcname = os.path.join("aplicacion", os.path.relpath(file_path, BASE_DIR))
                             zf.write(file_path, arcname)
 
-                # Mantener copia TalentoLive_Paquete_Completo.zip para compatibilidad
-                legacy_zip_path = os.path.join(compartir_dir, "TalentoLive_Paquete_Completo.zip")
+                # Mantener copias para compatibilidad
                 try:
                     import shutil
-                    shutil.copyfile(zip_path, legacy_zip_path)
+                    shutil.copyfile(zip_path, os.path.join(compartir_dir, "SportsLive_Paquete_Completo.zip"))
+                    shutil.copyfile(zip_path, os.path.join(compartir_dir, "TalentoLive_Paquete_Completo.zip"))
                 except Exception:
                     pass
 
@@ -849,7 +853,7 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
                     "success": True,
                     "message": "Exportación completada en la carpeta 'compartir'",
                     "events_count": len(events),
-                    "files": ["exportacion_eventos.json", "SportsLive_Paquete_Completo.zip", "TalentoLive_Paquete_Completo.zip"]
+                    "files": ["exportacion_eventos.json", "LiveSports_Paquete_Completo.zip", "SportsLive_Paquete_Completo.zip", "TalentoLive_Paquete_Completo.zip"]
                 }, ensure_ascii=False).encode("utf-8"))
                 return
 
@@ -1012,8 +1016,9 @@ class SportsLiveHandler(SimpleHTTPRequestHandler):
             self._set_cors_and_json(500)
             self.wfile.write(json.dumps({"error": f"Error interno en servidor: {str(e)}"}).encode("utf-8"))
 
-TalentoLiveHandler = SportsLiveHandler  # Alias de compatibilidad
-GradaDirectoHandler = SportsLiveHandler  # Alias de compatibilidad
+SportsLiveHandler = LiveSportsHandler  # Alias de compatibilidad
+TalentoLiveHandler = LiveSportsHandler  # Alias de compatibilidad
+GradaDirectoHandler = LiveSportsHandler  # Alias de compatibilidad
 
 def run_server(port=3000, on_ready=None):
     init_db()
@@ -1024,8 +1029,8 @@ def run_server(port=3000, on_ready=None):
     for p in [port, 3001, 8080, 8000]:
         try:
             server_address = ("", p)
-            httpd = ThreadingHTTPServer(server_address, SportsLiveHandler)
-            print(f"📡 SportsLive servidor activo en http://localhost:{p}")
+            httpd = ThreadingHTTPServer(server_address, LiveSportsHandler)
+            print(f"📡 LiveSports servidor activo en http://localhost:{p}")
             if on_ready:
                 import threading
                 threading.Thread(target=on_ready, args=(p,), daemon=True).start()

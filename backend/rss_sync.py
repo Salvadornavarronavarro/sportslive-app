@@ -1,5 +1,5 @@
 """
-SportsLive - Servicio de Ingesta Automática por Feed RSS de YouTube
+LiveSports - Servicio de Ingesta Automática por Feed RSS de YouTube
 Permite consultar el feed RSS público de canales de YouTube (sin consumo de cuota de API),
 clasificar automáticamente los contenidos (press, reel, match_replay), evitar duplicados,
 y ejecutar sincronización manual desde el panel de control o automática en segundo plano.

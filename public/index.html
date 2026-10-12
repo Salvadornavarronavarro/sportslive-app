@@ -3,8 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>SportsLive | El Deporte Base y Amateur en Vivo</title>
+  <title>LiveSports | El Deporte Base y Amateur en Vivo</title>
   <meta name="description" content="Plataforma centralizada y agregador inteligente de retransmisiones en directo y diferido de deporte base, competiciones federadas y clubes locales en España.">
+  <meta property="og:title" content="LiveSports | El Deporte Base y Amateur en Vivo">
+  <meta property="og:description" content="Sigue en directo todas las retransmisiones de deporte base, cantera y competiciones federadas en España en LiveSports.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="LiveSports">
+  <meta property="og:image" content="logo.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="LiveSports | El Deporte Base y Amateur en Vivo">
+  <meta name="twitter:description" content="Sigue en directo todas las retransmisiones de deporte base y clubes locales en LiveSports.">
   <link rel="stylesheet" href="css/styles.css">
   <style>
     /* Estilos para picker de provincias en modal */
@@ -26,25 +34,27 @@
       color: #93c5fd;
   </style>
   <script>
-    // Evaluación rigurosa del estado de autenticación
-    function getSportsLiveUser() {
+    // Evaluación rigurosa del estado de autenticación (LiveSports)
+    function getLiveSportsUser() {
       let u = null;
       try {
         if (typeof state !== 'undefined' && state && state.currentUser) {
           u = state.currentUser;
         } else {
-          u = JSON.parse(localStorage.getItem('sportslive_current_user') || 'null');
+          u = JSON.parse(localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null');
         }
       } catch (_) {
         u = null;
       }
       return u;
     }
+    function getSportsLiveUser() { return getLiveSportsUser(); }
 
-    function isSportsLiveAuthenticated() {
-      const u = getSportsLiveUser();
+    function isLiveSportsAuthenticated() {
+      const u = getLiveSportsUser();
       return !!(u && (u.id || u.username) && u.role && u.role !== 'guest');
     }
+    function isSportsLiveAuthenticated() { return isLiveSportsAuthenticated(); }
 
     // Disparador directo inmediato para el botón de Favoritos
     function handleFavoritesClick(event) {
@@ -53,7 +63,7 @@
         if (typeof event.stopPropagation === 'function') event.stopPropagation();
       }
 
-      if (isSportsLiveAuthenticated()) {
+      if (isLiveSportsAuthenticated()) {
         // Usuario registrado o Administrador: NUNCA modal de captación, SIEMPRE modal de favoritos
         if (typeof openFavoritesModal === 'function') {
           openFavoritesModal();
@@ -82,7 +92,9 @@
         }
       }
     }
+    window.getLiveSportsUser = getLiveSportsUser;
     window.getSportsLiveUser = getSportsLiveUser;
+    window.isLiveSportsAuthenticated = isLiveSportsAuthenticated;
     window.isSportsLiveAuthenticated = isSportsLiveAuthenticated;
     window.handleFavoritesClick = handleFavoritesClick;
     window.handleFavoritesHeaderClick = handleFavoritesClick;
@@ -94,11 +106,11 @@
   <header class="app-header">
     <div class="header-container">
       
-      <!-- A la izquierda: Logo y texto "SportsLive" -->
-      <div class="brand-wrapper" onclick="location.reload()" title="SportsLive - Deporte Base en Vivo">
-        <img src="logo.png" alt="SportsLive Logo" class="brand-logo" width="45" height="38">
+      <!-- A la izquierda: Logo y texto "LiveSports" -->
+      <div class="brand-wrapper" onclick="location.reload()" title="LiveSports - Deporte Base en Vivo">
+        <img src="logo.png" alt="LiveSports Logo" class="brand-logo" width="45" height="38">
         <div class="brand-text">
-          <h1>SportsLive</h1>
+          <h1>LiveSports</h1>
         </div>
       </div>
 
@@ -206,7 +218,7 @@
         </button>
 
         <!-- 6. [ 💼 ANÚNCIATE ] -->
-        <button type="button" class="capsule-btn btn-sponsor-capsule" id="btn-header-sponsor" onclick="openSponsorModal(event)" title="Publicidad y Patrocinio en SportsLive">
+        <button type="button" class="capsule-btn btn-sponsor-capsule" id="btn-header-sponsor" onclick="openSponsorModal(event)" title="Publicidad y Patrocinio en LiveSports">
           <span class="capsule-icon-sponsor">💼</span>
           <span class="capsule-btn-text">ANÚNCIATE</span>
         </button>
@@ -337,6 +349,7 @@
                 <span>🌐</span> <span>Ver Todo el Catálogo</span>
               </button>
             </div>
+            <div class="fav-media-cards-grid" id="fav-media-cards-grid"></div>
           </div>
 
           <!-- Bloque de descubrimiento para usuarios invitados (🔥 Tendencias y Más Vistos de la Semana) -->
@@ -664,12 +677,12 @@
               </div>
             </div>
             <span style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.4rem; display: block;">
-              💡 El banner de tu patrocinador se integrará en el reproductor de SportsLive para ayudarte a monetizar cada directo.
+              💡 El banner de tu patrocinador se integrará en el reproductor de LiveSports para ayudarte a monetizar cada directo.
             </span>
           </div>
 
           <button type="submit" class="btn-submit-emission" style="width: 100%; justify-content: center; padding: 0.9rem; font-size: 0.95rem;">
-            🚀 Publicar Emisión Oficial en SportsLive
+            🚀 Publicar Emisión Oficial en LiveSports
           </button>
         </form>
       </div>
@@ -885,7 +898,7 @@
               <label for="reg-club-auth-key" style="color: #f59e0b; font-weight: 700;">
                 🔑 Código de Invitación / Clave de Autorización Oficial *
               </label>
-              <input type="text" id="reg-club-auth-key" name="clubAuthKey" class="form-input" style="border-color: rgba(245, 158, 11, 0.5); text-transform: uppercase;" placeholder="Introduce el código facilitado por la administración de SportsLive" inputmode="text" autocomplete="off">
+              <input type="text" id="reg-club-auth-key" name="clubAuthKey" class="form-input" style="border-color: rgba(245, 158, 11, 0.5); text-transform: uppercase;" placeholder="Introduce el código facilitado por la administración de LiveSports" inputmode="text" autocomplete="off">
               <div style="margin-top: 0.45rem; font-size: 0.78rem; color: #94a3b8;">
                 ¿Eres un club y necesitas tu clave de acceso? <a href="#" id="link-request-club-key" onclick="requestClubKeyInfo(event)" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">[Solicitar Clave de Emisión]</a>
               </div>
@@ -1174,7 +1187,7 @@
         <!-- Vista 3: Gestión de Usuarios y Creación de Cuentas -->
         <div id="admin-tab-users" style="display: none;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h4 style="margin: 0;">Usuarios Registrados en SportsLive</h4>
+            <h4 style="margin: 0;">Usuarios Registrados en LiveSports</h4>
             <button class="btn-upload" onclick="toggleNewUserForm()">
               <span>+</span>
               <span>Dar de Alta Nuevo Club / Usuario</span>
@@ -1415,7 +1428,7 @@
       
       <div class="modal-header">
         <div class="modal-header-text">
-          <h3 class="modal-title" id="sponsor-modal-title">💼 Publicidad y Patrocinio en SportsLive</h3>
+          <h3 class="modal-title" id="sponsor-modal-title">💼 Publicidad y Patrocinio en LiveSports</h3>
           <p class="modal-subtitle" style="font-size: 0.85rem; color: #94a3b8; margin: 0.25rem 0 0 0;">
             Llega directamente a las familias, deportistas y aficionados del deporte base
           </p>
@@ -1534,17 +1547,17 @@
               </button>
 
               <div class="sponsor-direct-contacts">
-                <a href="https://wa.me/34600000000?text=Hola%20SportsLive%2C%20quiero%20informaci%C3%B3n%20sobre%20patrocinio%20y%20anuncios%20deportivos" 
+                <a href="https://wa.me/34600000000?text=Hola%20LiveSports%2C%20quiero%20informaci%C3%B3n%20sobre%20patrocinio%20y%20anuncios%20deportivos" 
                    target="_blank" 
                    rel="noopener noreferrer" 
                    class="btn-sponsor-whatsapp" 
                    onclick="event.stopPropagation()">
                   <span>📲 Contactar por WhatsApp Comercial</span>
                 </a>
-                <a href="mailto:publicidad@sportslive.es?subject=Informacion%20Patrocinio%20SportsLive" 
+                <a href="mailto:publicidad@livesports.es?subject=Informacion%20Patrocinio%20LiveSports" 
                    class="sponsor-email-link" 
                    onclick="event.stopPropagation()">
-                  ✉️ publicidad@sportslive.es
+                  ✉️ publicidad@livesports.es
                 </a>
               </div>
             </div>
@@ -1632,7 +1645,7 @@
     <div class="guest-floating-bar-content">
       <div class="guest-floating-icon">🌟</div>
       <div class="guest-floating-text">
-        <span>Estás explorando SportsLive como invitado. Crea tu cuenta gratuita para seguir a tus clubes y comentar en directo.</span>
+        <span>Estás explorando LiveSports como invitado. Crea tu cuenta gratuita para seguir a tus clubes y comentar en directo.</span>
       </div>
       <div class="guest-floating-actions">
         <button type="button" class="btn-guest-floating-register" onclick="openAuthModal('register')">
@@ -1701,7 +1714,7 @@
   <!-- ==================== FOOTER ==================== -->
   <footer class="app-footer" style="padding: 2.5rem 1rem 1.75rem; text-align: center; border-top: 1px solid var(--border-subtle); margin-top: 3.5rem; color: #64748b; font-size: 0.8rem;">
     <div style="display: flex; align-items: center; justify-content: center; gap: 0.85rem; flex-wrap: wrap;">
-      <span>SportsLive © 2026 • Deporte Base y Amateur en Vivo</span>
+      <span>LiveSports © 2026 • Deporte Base y Amateur en Vivo</span>
       <span>•</span>
       <a href="#admin-login" onclick="openAdminLoginModal(event)" style="color: #475569; text-decoration: none; font-size: 0.75rem; transition: color 0.2s;" onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'" title="Acceso restringido">🔒 Administración</a>
     </div>

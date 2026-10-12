@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# SportsLive - Exportador de Aplicación y Datos para Compartir
+# LiveSports - Exportador de Aplicación y Datos para Compartir
 # Doble clic para generar el paquete comprimido en la carpeta compartir
 # ==========================================================
 
@@ -11,7 +11,7 @@ COMPARTIR_DIR="$PARENT_DIR/compartir"
 mkdir -p "$COMPARTIR_DIR"
 
 echo "=========================================================="
-echo "   📦 EXPORTANDO SPORTSLIVE PARA COMPARTIR"
+echo "   📦 EXPORTANDO LIVESPORTS PARA COMPARTIR"
 echo "=========================================================="
 echo ""
 echo "Carpeta origen: $DIR"
@@ -34,15 +34,18 @@ print(f'   ✅ {len(events)} eventos exportados en exportacion_eventos.json')
 echo ""
 echo "2️⃣ Empaquetando la aplicación en ZIP para compartir..."
 cd "$PARENT_DIR"
-ZIP_DEST="$COMPARTIR_DIR/SportsLive_Paquete_Completo.zip"
+ZIP_DEST="$COMPARTIR_DIR/LiveSports_Paquete_Completo.zip"
+SPORTSLIVE_ZIP_DEST="$COMPARTIR_DIR/SportsLive_Paquete_Completo.zip"
 LEGACY_ZIP_DEST="$COMPARTIR_DIR/TalentoLive_Paquete_Completo.zip"
-rm -f "$ZIP_DEST" "$LEGACY_ZIP_DEST"
+rm -f "$ZIP_DEST" "$SPORTSLIVE_ZIP_DEST" "$LEGACY_ZIP_DEST"
 
 zip -r "$ZIP_DEST" "aplicacion" -x "*.DS_Store" -x "*/__pycache__/*" > /dev/null
+cp "$ZIP_DEST" "$SPORTSLIVE_ZIP_DEST"
 cp "$ZIP_DEST" "$LEGACY_ZIP_DEST"
 
 echo "   ✅ Paquete generado con éxito:"
 echo "   📁 $ZIP_DEST"
+echo "   📁 $SPORTSLIVE_ZIP_DEST (copia de compatibilidad)"
 echo "   📁 $LEGACY_ZIP_DEST (copia de compatibilidad)"
 echo ""
 echo "=========================================================="

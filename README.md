@@ -1,6 +1,6 @@
-# 📡 SportsLive — Plataforma Agregadora de Deporte Base en Vivo
+# 📡 LiveSports — Plataforma Agregadora de Deporte Base en Vivo
 
-**SportsLive** es una plataforma centralizada (agregador inteligente) para retransmisiones deportivas amateur y de deporte base en España (fútbol, baloncesto, fútbol sala, balonmano, voleibol, rugby, etc.), diseñada para concentrar en un único lugar las emisiones dispersas en YouTube, Twitch y redes sociales.
+**LiveSports** es una plataforma centralizada (agregador inteligente) para retransmisiones deportivas amateur y de deporte base en España (fútbol, baloncesto, fútbol sala, balonmano, voleibol, rugby, etc.), diseñada para concentrar en un único lugar las emisiones dispersas en YouTube, Twitch y redes sociales.
 
 ---
 
@@ -77,7 +77,7 @@ Una vez iniciado, abre en tu navegador:
 │   └── sports.py          # Catálogo de deportes y categorías federadas
 └── public/
     ├── index.html         # Interfaz web responsiva accesible
-    ├── logo.png           # Logo oficial de SportsLive (38px, transparente)
+    ├── logo.png           # Logo oficial de LiveSports (38px, transparente)
     ├── css/
     │   └── styles.css     # Estilos modernos deportivos (tema oscuro con acentos en vivo)
     └── js/

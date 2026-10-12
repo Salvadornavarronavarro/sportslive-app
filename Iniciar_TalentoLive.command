@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================================
-# SportsLive (anteriormente TalentoLive) - Lanzador Principal
-# Doble clic para abrir SportsLive en el navegador web
+# LiveSports (anteriormente TalentoLive) - Lanzador Principal
+# Doble clic para abrir LiveSports en el navegador web
 # ==========================================================
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"

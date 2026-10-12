@@ -48,7 +48,7 @@ def extract_metadata_from_url(url: str) -> dict:
             oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
             req = urllib.request.Request(
                 oembed_url,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SportsLive/1.0"}
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) LiveSports/1.0"}
             )
             with urllib.request.urlopen(req, timeout=3.5) as resp:
                 if resp.status == 200:

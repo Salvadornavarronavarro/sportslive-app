@@ -1852,7 +1852,7 @@ def authenticate_user(identity: str, password: str):
         idents = {clean_ident, clean_ident.replace("_", " "), clean_ident.replace(" ", "_")}
         if "@" in clean_ident:
             prefix = clean_ident.split("@")[0]
-            for dom in ["@sportslive.es", "@talentolive.es", "@gradadirecto.es"]:
+            for dom in ["@livesports.es", "@sportslive.es", "@talentolive.es", "@gradadirecto.es"]:
                 idents.add(prefix + dom)
         placeholders = ", ".join(["?"] * len(idents))
         ident_list = list(idents)
@@ -3017,10 +3017,10 @@ def seed_sample_club_community_messages(cursor):
         ("cd-las-rozas", "Socio 312 (Aficionado)", "¡A por todas este fin de semana en Navalcarbón! Todo el apoyo al cadete 🔵⚪", "viewer", "2026-09-14T09:15:00"),
         ("cd-las-rozas", "Delegado C.D. Las Rozas", "Muchas gracias afición por el apoyo constante. ¡Este sábado esperamos llenar la grada!", "club", "2026-09-14T10:30:00"),
         ("cd-las-rozas", "Marta Gómez", "Gran inicio de temporada de la cantera, qué orgullo verlos jugar así.", "viewer", "2026-09-14T11:45:00"),
-        ("cd-las-rozas", "Admin General", "¡Canal oficial de C.D. Las Rozas activo en SportsLive! Disfrutad de los contenidos y buen ambiente. 🛡️", "admin", "2026-09-14T12:00:00"),
-        ("cantera-joventut", "Prensa Joventut", "Bienvenidos al canal oficial de la Penya en SportsLive. Força Penya! 🏀💚", "club", "2026-09-14T10:00:00"),
+        ("cd-las-rozas", "Admin General", "¡Canal oficial de C.D. Las Rozas activo en LiveSports! Disfrutad de los contenidos y buen ambiente. 🛡️", "admin", "2026-09-14T12:00:00"),
+        ("cantera-joventut", "Prensa Joventut", "Bienvenidos al canal oficial de la Penya en LiveSports. Força Penya! 🏀💚", "club", "2026-09-14T10:00:00"),
         ("cantera-joventut", "Jordi Basket", "¡Qué ganas de ver la final junior autonómica hoy!", "viewer", "2026-09-14T11:20:00"),
-        ("cf-fuenlabrada-cantera", "Admin General", "¡Canal oficial de la cantera del C.F. Fuenlabrada disponible en SportsLive! 🔵⚪", "admin", "2026-09-20T10:00:00"),
+        ("cf-fuenlabrada-cantera", "Admin General", "¡Canal oficial de la cantera del C.F. Fuenlabrada disponible en LiveSports! 🔵⚪", "admin", "2026-09-20T10:00:00"),
         ("cf-fuenlabrada-cantera", "Afición Azulona", "¡Gran victoria del Juvenil A en el derbi! A seguir sumando en División de Honor 🔥", "viewer", "2026-09-20T19:30:00"),
         ("cf-intercity", "Afición Alicante", "¡A por los 3 puntos en el Antonio Solana este fin de semana! 💪🔵⚪", "viewer", "2026-09-28T18:00:00"),
         ("cf-intercity", "Prensa CF Intercity", "Bienvenidos al Muro de la Afición del CF Intercity. ¡Dejad vuestros mensajes de apoyo al equipo! 🛡️⚽", "club", "2026-09-28T18:30:00"),
@@ -3225,7 +3225,7 @@ def create_club(data: dict) -> dict:
         sport_id = (data.get("sport_id") or "futbol").strip().lower()
         shield_url = (data.get("shield_url") or "").strip()
         shield_icon = (data.get("shield_icon") or "🛡️").strip()
-        description = (data.get("description") or f"Canal oficial de {name} en SportsLive.").strip()
+        description = (data.get("description") or f"Canal oficial de {name} en LiveSports.").strip()
         user_id = data.get("user_id")
 
         # Deporte info
