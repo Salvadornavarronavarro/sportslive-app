@@ -2309,46 +2309,44 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
     rowSection.className = 'fav-club-row-section';
     rowSection.setAttribute('aria-label', `Emisiones de ${officialName}`);
 
-    // Club Header: Escudo <img> + Nombre oficial + Separador limpio
-    const headerEl = document.createElement('div');
-    headerEl.className = 'fav-club-row-header';
-    headerEl.innerHTML = `
-      <div class="fav-club-row-brand">
-        <div class="fav-club-row-crest-box">
-          ${crestUrl 
-            ? `<img src="${sanitizeUrl(crestUrl)}" alt="${escapeHtml(officialName)}" class="fav-club-row-crest" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
-               <span class="fav-club-row-crest-fallback" style="display:none;" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
-            : `<span class="fav-club-row-crest-fallback" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
-          }
-        </div>
-        <h4 class="fav-club-row-name">${escapeHtml(officialName)}</h4>
-        <span class="fav-club-row-count-badge">${latest4.length} ${latest4.length === 1 ? 'emisión' : 'emisiones'}</span>
+    // Columna Izquierda (~150px - 180px de ancho): Escudo, nombre y enlace oficial
+    const leftCol = document.createElement('div');
+    leftCol.className = 'fav-club-row-left-col';
+    leftCol.innerHTML = `
+      <div class="fav-club-left-crest-box">
+        ${crestUrl 
+          ? `<img src="${sanitizeUrl(crestUrl)}" alt="${escapeHtml(officialName)}" class="fav-club-left-crest" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
+             <span class="fav-club-left-crest-fallback" style="display:none;" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
+          : `<span class="fav-club-left-crest-fallback" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
+        }
       </div>
-      <button type="button" class="fav-club-row-channel-btn" onclick="enterClubMode('${escapeHtml(clubParam).replace(/'/g, "\\'")}')" title="Ver canal oficial de ${escapeHtml(officialName)}">
+      <h3 class="fav-club-left-name" title="${escapeHtml(officialName)}">${escapeHtml(officialName)}</h3>
+      <span class="fav-club-left-count-badge">${latest4.length} ${latest4.length === 1 ? 'emisión' : 'emisiones'}</span>
+      <button type="button" class="fav-club-left-channel-link" onclick="enterClubMode('${escapeHtml(clubParam).replace(/'/g, "\\'")}')" title="Ver canal oficial de ${escapeHtml(officialName)}">
         <span>Canal Oficial</span> <span>➔</span>
       </button>
     `;
-    rowSection.appendChild(headerEl);
+    rowSection.appendChild(leftCol);
 
-    // Contenedor de vídeos: Máximo 4 vídeos en fila de 4 columnas (o scroll en mobile/tablet)
-    const videosRow = document.createElement('div');
-    videosRow.className = 'fav-club-videos-row';
+    // Contenedor Derecho: Exactamente 4 vídeos en línea en escritorio
+    const rightContainer = document.createElement('div');
+    rightContainer.className = 'fav-club-row-right-container';
 
     if (latest4.length > 0) {
       latest4.forEach((evt, idx) => {
         const card = createMatchCard(evt, idx);
         card.classList.add('fav-scaled-card');
-        videosRow.appendChild(card);
+        rightContainer.appendChild(card);
       });
     } else {
-      videosRow.innerHTML = `
-        <div style="grid-column: 1 / -1; padding: 0.55rem 0.8rem; color: #94a3b8; font-size: 0.68rem; text-align: center; background: rgba(255,255,255,0.02); border-radius: 6px;">
+      rightContainer.innerHTML = `
+        <div class="fav-club-empty-notice" style="grid-column: 1 / -1; display:flex; align-items:center; justify-content:center; padding: 1.25rem 1rem; color: #94a3b8; font-size: 0.75rem; text-align: center; background: rgba(255,255,255,0.02); border-radius: 6px;">
           Actualmente no hay emisiones recientes registradas para este club.
         </div>
       `;
     }
 
-    rowSection.appendChild(videosRow);
+    rowSection.appendChild(rightContainer);
     container.appendChild(rowSection);
     totalSections++;
   });
@@ -2374,28 +2372,26 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
     rowSection.className = 'fav-club-row-section';
     rowSection.setAttribute('aria-label', 'Partidos Favoritos Guardados');
 
-    const headerEl = document.createElement('div');
-    headerEl.className = 'fav-club-row-header';
-    headerEl.innerHTML = `
-      <div class="fav-club-row-brand">
-        <div class="fav-club-row-crest-box">
-          <span class="fav-club-row-crest-fallback" aria-hidden="true">⭐</span>
-        </div>
-        <h4 class="fav-club-row-name">Partidos Guardados Directamente</h4>
-        <span class="fav-club-row-count-badge">${latestMatches.length} ${latestMatches.length === 1 ? 'partido' : 'partidos'}</span>
+    const leftCol = document.createElement('div');
+    leftCol.className = 'fav-club-row-left-col';
+    leftCol.innerHTML = `
+      <div class="fav-club-left-crest-box">
+        <span class="fav-club-left-crest-fallback" aria-hidden="true">⭐</span>
       </div>
+      <h3 class="fav-club-left-name">Partidos Guardados</h3>
+      <span class="fav-club-left-count-badge">${latestMatches.length} ${latestMatches.length === 1 ? 'partido' : 'partidos'}</span>
     `;
-    rowSection.appendChild(headerEl);
+    rowSection.appendChild(leftCol);
 
-    const videosRow = document.createElement('div');
-    videosRow.className = 'fav-club-videos-row';
+    const rightContainer = document.createElement('div');
+    rightContainer.className = 'fav-club-row-right-container';
     latestMatches.forEach((evt, idx) => {
       const card = createMatchCard(evt, idx);
       card.classList.add('fav-scaled-card');
-      videosRow.appendChild(card);
+      rightContainer.appendChild(card);
     });
 
-    rowSection.appendChild(videosRow);
+    rowSection.appendChild(rightContainer);
     container.appendChild(rowSection);
     totalSections++;
   }
@@ -2479,21 +2475,6 @@ function applyFilters() {
     const matchEvt = hasFavoriteMatches && state.favorites.includes(e.id);
     return matchClub || matchEvt;
   };
-
-  // Renderizar sección de favoritos agrupada por club con las últimas 4 emisiones
-  const favMediaGrid = document.getElementById('fav-media-cards-grid');
-  if (favMediaGrid) {
-    if (hasFavorites && !state.activeClubMode) {
-      favMediaGrid.style.display = 'flex';
-      const renderedCount = renderFavoriteClubsGroupedSection(favMediaGrid, cleanEvents);
-      if (renderedCount === 0) {
-        favMediaGrid.style.display = 'none';
-      }
-    } else {
-      favMediaGrid.style.display = 'none';
-      favMediaGrid.innerHTML = '';
-    }
-  }
 
   // MODO CLUB / MONOGRÁFICO DE EQUIPO ACTIVO
   const targetClubMode = state.activeClubMode || state.activeClubFilter;
@@ -3582,10 +3563,35 @@ window.fetchEvents = fetchEvents;
 
 function renderEvents(events) {
   const grid = document.getElementById('matches-grid');
+  const favContainer = document.getElementById('fav-per-club-rows');
   if (!grid) return;
 
-  const isFavoritesView = state.favoritesOnlyMode && (((state.favoriteClubs || []).length + (state.favorites || []).length) > 0);
+  const isGuest = !state.currentUser;
+  const hasFavClubs = !isGuest && state.favoriteClubs && state.favoriteClubs.length > 0;
+  const hasFavMatches = !isGuest && state.favorites && state.favorites.length > 0;
+  const hasFavorites = hasFavClubs || hasFavMatches;
+  const isFavoritesView = hasFavorites && state.favoritesOnlyMode;
+
   grid.classList.toggle('favorites-view-grid', !!isFavoritesView);
+
+  // Si estamos en la sección "En Directo y Emisiones de tus Favoritos" con clubes seguidos:
+  if (isFavoritesView && hasFavClubs) {
+    if (favContainer) {
+      favContainer.style.display = 'flex';
+      const cleanEvents = (state.allEvents || []).filter(e => !isTestResidualEvent(e) && isEventOfApprovedClub(e));
+      renderFavoriteClubsGroupedSection(favContainer, cleanEvents);
+    }
+    grid.style.display = 'none';
+    grid.innerHTML = '';
+    return;
+  }
+
+  // En catálogo general o si no hay clubes seguidos:
+  if (favContainer) {
+    favContainer.style.display = 'none';
+    favContainer.innerHTML = '';
+  }
+  grid.style.display = 'grid';
 
   if (!events || events.length === 0) {
     const isCcaaFiltered = state.selectedCcaa && state.selectedCcaa !== 'all';

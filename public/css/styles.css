@@ -3457,123 +3457,138 @@ iframe#main-player-iframe {
    ========================================================== */
 
 /* Contenedor apilado de filas de clubes favoritos */
-.fav-media-cards-grid,
-.fav-clubs-rows-container {
+.fav-per-club-rows-container {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1rem;
   width: 100%;
-  margin-top: 0.85rem;
+  margin-top: 0.5rem;
+  margin-bottom: 2rem;
   box-sizing: border-box;
 }
 
-/* Fila individual por cada club seguido */
+/* Fila horizontal independiente por cada club seguido */
 .fav-club-row-section {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.85rem;
   width: 100%;
   box-sizing: border-box;
   background: rgba(15, 23, 42, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fav-club-row-section:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Columna Izquierda (~150px - 180px de ancho) */
+.fav-club-row-left-col {
+  width: 165px;
+  min-width: 150px;
+  max-width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+  padding: 0.75rem 0.6rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  padding: 0.6rem 0.75rem;
+  box-sizing: border-box;
 }
 
-/* Encabezado del club: Escudo <img> + Nombre oficial + Separador */
-.fav-club-row-header {
+.fav-club-left-crest-box {
+  width: 44px;
+  height: 44px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.fav-club-row-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.fav-club-row-crest-box {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
   flex-shrink: 0;
 }
 
-.fav-club-row-crest {
-  width: 22px;
-  height: 22px;
+.fav-club-left-crest {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  border-radius: 3px;
 }
 
-.fav-club-row-crest-fallback {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 0.95rem;
+.fav-club-left-crest-fallback {
+  font-size: 1.4rem;
+  line-height: 1;
 }
 
-.fav-club-row-name {
-  font-size: 0.85rem;
+.fav-club-left-name {
+  font-size: 0.82rem;
   font-weight: 700;
   color: #f1f5f9;
   margin: 0;
-  white-space: nowrap;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
-.fav-club-row-count-badge {
+.fav-club-left-count-badge {
   font-size: 0.58rem;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.25);
-  padding: 0.08rem 0.35rem;
-  border-radius: 8px;
+  padding: 0.08rem 0.4rem;
+  border-radius: 10px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.fav-club-row-channel-btn {
+.fav-club-left-channel-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
   font-size: 0.62rem;
   font-weight: 600;
-  padding: 0.18rem 0.45rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: auto;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
-.fav-club-row-channel-btn:hover {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.35);
+.fav-club-left-channel-link:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
 }
 
-/* Contenedor de vídeos: Máximo 4 vídeos en fila en escritorio (repeat(4, 1fr)) */
-.fav-club-videos-row {
+/* Contenedor Derecho: Exactamente 4 vídeos en línea en escritorio */
+.fav-club-row-right-container {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.55rem;
-  width: 100%;
-  box-sizing: border-box;
   align-items: stretch;
+  box-sizing: border-box;
 }
 
 /* Rejilla de favoritos en catálogo principal */
@@ -3586,9 +3601,45 @@ iframe#main-player-iframe {
 }
 
 /* Comportamiento responsive en Tablets y Móviles:
-   Scroll horizontal fluido con snap o 2x2 para acceder a los 4 elementos sin saturar la pantalla */
+   Scroll horizontal fluido con snap para explorar los 4 vídeos */
 @media (max-width: 960px) {
-  .fav-club-videos-row,
+  .fav-club-row-section {
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.65rem;
+  }
+
+  .fav-club-row-left-col {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    text-align: left;
+    padding: 0.45rem 0.65rem;
+    gap: 0.6rem;
+  }
+
+  .fav-club-left-crest-box {
+    width: 32px;
+    height: 32px;
+  }
+
+  .fav-club-left-name {
+    font-size: 0.82rem;
+    white-space: nowrap;
+    -webkit-line-clamp: 1;
+  }
+
+  .fav-club-left-channel-link {
+    width: auto;
+    margin-top: 0;
+    margin-left: auto;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .fav-club-row-right-container,
   .matches-grid.favorites-view-grid {
     display: flex;
     flex-wrap: nowrap;
@@ -3601,16 +3652,17 @@ iframe#main-player-iframe {
     gap: 0.5rem;
     padding-bottom: 4px;
     padding-top: 2px;
+    width: 100%;
   }
 
-  .fav-club-videos-row::-webkit-scrollbar,
+  .fav-club-row-right-container::-webkit-scrollbar,
   .matches-grid.favorites-view-grid::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
   }
 
-  .fav-club-videos-row .match-card,
+  .fav-club-row-right-container .match-card,
   .matches-grid.favorites-view-grid .match-card {
     flex: 0 0 calc(50% - 0.25rem);
     min-width: 155px;
@@ -3621,7 +3673,7 @@ iframe#main-player-iframe {
 }
 
 @media (max-width: 520px) {
-  .fav-club-videos-row .match-card,
+  .fav-club-row-right-container .match-card,
   .matches-grid.favorites-view-grid .match-card {
     flex: 0 0 calc(75% - 0.25rem);
     min-width: 145px;
@@ -3631,6 +3683,7 @@ iframe#main-player-iframe {
 
 /* Reducción adicional del 33% para tarjetas de favoritos */
 .favorites-view-grid .match-card,
+.fav-club-row-right-container .match-card,
 .fav-media-cards-grid .match-card,
 .fav-club-videos-row .match-card,
 .match-card.fav-scaled-card {
