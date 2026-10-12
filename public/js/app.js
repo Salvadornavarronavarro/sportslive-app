@@ -2305,23 +2305,33 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
     const crestIcon = getClubCrestIcon(clubObj, clubEvents);
     const clubParam = clubObj ? (clubObj.id || clubObj.name) : clubName;
 
+    const categoryName = (clubObj && clubObj.category && clubObj.category.trim())
+      ? clubObj.category.trim()
+      : ((clubEvents[0] && clubEvents[0].category && clubEvents[0].category.trim())
+          ? clubEvents[0].category.trim()
+          : ((clubObj && clubObj.sport_name && clubObj.sport_name.trim())
+              ? clubObj.sport_name.trim()
+              : ((clubEvents[0] && clubEvents[0].sport_name && clubEvents[0].sport_name.trim())
+                  ? clubEvents[0].sport_name.trim()
+                  : 'Oficial')));
+
     const rowSection = document.createElement('section');
     rowSection.className = 'fav-club-row-section';
     rowSection.setAttribute('aria-label', `Emisiones de ${officialName}`);
 
-    // Columna Izquierda (~150px - 180px de ancho): Escudo, nombre y enlace oficial
+    // Columna Izquierda (Ancho fijo ~160px - 180px): Escudo (<img class="club-row-badge">), nombre oficial y categoría, centrados verticalmente
     const leftCol = document.createElement('div');
     leftCol.className = 'fav-club-row-left-col';
     leftCol.innerHTML = `
       <div class="fav-club-left-crest-box">
         ${crestUrl 
-          ? `<img src="${sanitizeUrl(crestUrl)}" alt="${escapeHtml(officialName)}" class="fav-club-left-crest" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
+          ? `<img src="${sanitizeUrl(crestUrl)}" alt="${escapeHtml(officialName)}" class="club-row-badge fav-club-left-crest" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
              <span class="fav-club-left-crest-fallback" style="display:none;" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
           : `<span class="fav-club-left-crest-fallback" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
         }
       </div>
       <h3 class="fav-club-left-name" title="${escapeHtml(officialName)}">${escapeHtml(officialName)}</h3>
-      <span class="fav-club-left-count-badge">${latest4.length} ${latest4.length === 1 ? 'emisión' : 'emisiones'}</span>
+      <span class="club-row-category-badge fav-club-left-category-badge" title="${escapeHtml(categoryName)}">${escapeHtml(categoryName)}</span>
       <button type="button" class="fav-club-left-channel-link" onclick="enterClubMode('${escapeHtml(clubParam).replace(/'/g, "\\'")}')" title="Ver canal oficial de ${escapeHtml(officialName)}">
         <span>Canal Oficial</span> <span>➔</span>
       </button>
@@ -2379,6 +2389,7 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
         <span class="fav-club-left-crest-fallback" aria-hidden="true">⭐</span>
       </div>
       <h3 class="fav-club-left-name">Partidos Guardados</h3>
+      <span class="club-row-category-badge fav-club-left-category-badge">Favoritos</span>
       <span class="fav-club-left-count-badge">${latestMatches.length} ${latestMatches.length === 1 ? 'partido' : 'partidos'}</span>
     `;
     rowSection.appendChild(leftCol);
@@ -2916,6 +2927,9 @@ function renderFeaturedSidebar(events) {
   }
 
   const displayEvents = (events || []).slice(0, 6);
+  const rowCount = Math.max(1, Math.min(3, Math.ceil(displayEvents.length / 2)));
+  container.style.gridTemplateRows = `repeat(${rowCount}, minmax(0, 1fr))`;
+
   displayEvents.forEach(evt => {
     evt = sanitizeEventSportAndClubData(evt);
     const card = document.createElement('div');
