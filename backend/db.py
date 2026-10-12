@@ -2,6 +2,8 @@
 Gestor de base de datos SQLite para TalentoLive (Deporte Base en Directo).
 """
 
+from __future__ import annotations
+
 import sqlite3
 import os
 import uuid
@@ -452,6 +454,10 @@ def _run_init_schema(conn):
         if "favorite_clubs" not in user_cols:
             cursor.execute("ALTER TABLE users ADD COLUMN favorite_clubs TEXT DEFAULT '[]';")
             conn.commit()
+        if "is_admin" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;")
+            cursor.execute("UPDATE users SET is_admin = 1 WHERE role = 'admin' OR LOWER(email) = 'salvador@talentolive.es';")
+            conn.commit()
 
         # Tabla de clubes y eventos favoritos de los aficionados
         cursor.execute("""
@@ -477,6 +483,24 @@ def _run_init_schema(conn):
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);")
+        conn.commit()
+
+        # Tabla de tokens de recuperación de contraseña
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            email TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);")
         conn.commit()
 
         # Eventos exclusivos de clubes autorizados (no sembrar eventos mock)
@@ -738,6 +762,10 @@ def init_db():
             _run_init_schema(local_conn)
         except Exception as local_err:
             print(f"[Aviso Base de Datos] Error en init_db de respaldo local: {local_err}")
+    try:
+        sync_and_reset_credentials()
+    except Exception as _e:
+        print(f"[Aviso Base de Datos] Error en sync_and_reset_credentials: {_e}")
 
 def hash_password(password: str, salt: str = None) -> tuple:
     if not salt:
@@ -757,8 +785,9 @@ def seed_default_users(cursor):
             "id": "usr-admin-1",
             "username": "admin",
             "email": "salvador@talentolive.es",
-            "password": "admin123",
+            "password": "AdminLiveSports2026!",
             "role": "admin",
+            "is_admin": 1,
             "club_name": None,
             "full_name": "Administrador General",
             "cif": "",
@@ -769,8 +798,9 @@ def seed_default_users(cursor):
             "id": "usr-viewer-1",
             "username": "aficionado",
             "email": "aficionado@talentolive.es",
-            "password": "user123",
+            "password": "LiveSportsUser2026!",
             "role": "viewer",
+            "is_admin": 0,
             "club_name": None,
             "full_name": "Aficionado al Deporte Base",
             "cif": "",
@@ -787,8 +817,8 @@ def seed_default_users(cursor):
             continue
         p_hash, salt = hash_password(u["password"])
         cursor.execute("""
-        INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, created_at, is_admin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             u["id"],
             uname,
@@ -801,7 +831,8 @@ def seed_default_users(cursor):
             u.get("cif", ""),
             u.get("location", ""),
             u.get("is_verified", 0),
-            now_iso
+            now_iso,
+            u.get("is_admin", 0)
         ))
 
 def seed_default_production_clubs(cursor):
@@ -1882,6 +1913,7 @@ def authenticate_user(identity: str, password: str):
             # Devolver usuario sin credenciales sensibles
             user.pop("password_hash", None)
             user.pop("salt", None)
+            user["is_admin"] = bool(user.get("is_admin") or user.get("role") == "admin")
             try:
                 user["favorite_clubs"] = json.loads(user.get("favorite_clubs") or "[]")
             except Exception:
@@ -1915,7 +1947,7 @@ def get_user_by_session(token: str):
         cursor = conn.cursor()
         now_iso = datetime.datetime.now().isoformat()
         cursor.execute("""
-        SELECT u.id, u.username, u.email, u.role, u.club_name, u.full_name, u.cif, u.location, u.is_verified, u.created_at, u.favorite_clubs, s.expires_at
+        SELECT u.id, u.username, u.email, u.role, u.club_name, u.full_name, u.cif, u.location, u.is_verified, u.created_at, u.favorite_clubs, u.is_admin, s.expires_at
         FROM sessions s
         JOIN users u ON s.user_id = u.id
         WHERE s.token = ? AND s.expires_at > ?
@@ -1923,6 +1955,7 @@ def get_user_by_session(token: str):
         row = cursor.fetchone()
         if row:
             u_dict = dict(row)
+            u_dict["is_admin"] = bool(u_dict.get("is_admin") or u_dict.get("role") == "admin")
             try:
                 u_dict["favorite_clubs"] = json.loads(u_dict.get("favorite_clubs") or "[]")
             except Exception:
@@ -1946,7 +1979,7 @@ def list_users():
     try:
         cursor = conn.cursor()
         cursor.execute("""
-        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, created_at
+        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, created_at, is_admin
         FROM users
         ORDER BY 
           CASE role
@@ -1957,7 +1990,12 @@ def list_users():
           END ASC,
           created_at DESC
         """)
-        return [dict(r) for r in cursor.fetchall()]
+        users = []
+        for r in cursor.fetchall():
+            u = dict(r)
+            u["is_admin"] = bool(u.get("is_admin") or u.get("role") == "admin")
+            users.append(u)
+        return users
     finally:
         conn.close()
 
@@ -1966,11 +2004,15 @@ def get_user_by_id(user_id: str):
     try:
         cursor = conn.cursor()
         cursor.execute("""
-        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, created_at
+        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, created_at, is_admin
         FROM users WHERE id = ?
         """, (user_id,))
         row = cursor.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        u_dict = dict(row)
+        u_dict["is_admin"] = bool(u_dict.get("is_admin") or u_dict.get("role") == "admin")
+        return u_dict
     finally:
         conn.close()
 
@@ -3489,6 +3531,201 @@ def get_subscribers_summary():
         }
     finally:
         conn.close()
+
+
+# ==========================================================
+# RECUPERACIÓN Y RESTABLECIMIENTO DE CONTRASEÑA
+# ==========================================================
+
+def _ensure_password_resets_table(cursor):
+    """Garantiza la existencia de la tabla password_resets antes de cualquier operación."""
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS password_resets (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        expires_at TEXT NOT NULL,
+        used INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);")
+
+def create_password_reset_token(email_or_username: str) -> dict | None:
+    """
+    Genera y almacena un token criptográficamente seguro para recuperar la contraseña.
+    Devuelve los datos del token o None si la cuenta no existe.
+    """
+    if not email_or_username:
+        return None
+    clean = str(email_or_username).strip().lower()
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        _ensure_password_resets_table(cursor)
+        cursor.execute("SELECT id, username, email, full_name, role FROM users WHERE LOWER(email) = ? OR LOWER(username) = ?", (clean, clean))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        user = dict(row)
+        user_id = user["id"]
+        user_email = user["email"]
+
+        # Invalidar tokens pendientes previos de este usuario
+        cursor.execute("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0", (user_id,))
+
+        token = secrets.token_urlsafe(32)
+        reset_id = str(uuid.uuid4())
+        now = datetime.datetime.now()
+        expires_at = (now + datetime.timedelta(hours=1)).isoformat()
+        now_iso = now.isoformat()
+
+        cursor.execute("""
+        INSERT INTO password_resets (id, user_id, email, token, expires_at, used, created_at)
+        VALUES (?, ?, ?, ?, ?, 0, ?)
+        """, (reset_id, user_id, user_email, token, expires_at, now_iso))
+        conn.commit()
+
+        return {
+            "id": reset_id,
+            "user_id": user_id,
+            "email": user_email,
+            "username": user["username"],
+            "full_name": user.get("full_name") or user["username"],
+            "token": token,
+            "expires_at": expires_at
+        }
+    finally:
+        conn.close()
+
+
+def verify_password_reset_token(token: str) -> dict | None:
+    """
+    Comprueba si un token de recuperación existe, no ha sido usado y no ha expirado.
+    """
+    if not token or not isinstance(token, str):
+        return None
+    clean_token = token.strip()
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        _ensure_password_resets_table(cursor)
+        cursor.execute("""
+        SELECT pr.id, pr.user_id, pr.email, pr.token, pr.expires_at, pr.used,
+               u.username, u.full_name, u.role
+        FROM password_resets pr
+        JOIN users u ON u.id = pr.user_id
+        WHERE pr.token = ? AND pr.used = 0
+        """, (clean_token,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        record = dict(row)
+        expires_at_str = record.get("expires_at", "")
+        if expires_at_str:
+            try:
+                exp_dt = datetime.datetime.fromisoformat(expires_at_str.replace("Z", "").split("+")[0])
+                if exp_dt < datetime.datetime.now():
+                    return None
+            except Exception:
+                pass
+
+        return record
+    finally:
+        conn.close()
+
+
+def reset_password_with_token(token: str, new_password: str) -> tuple[bool, str]:
+    """
+    Actualiza la contraseña del usuario tras verificar su token de recuperación.
+    """
+    if not new_password or len(str(new_password).strip()) < 6:
+        return False, "La nueva contraseña debe tener al menos 6 caracteres."
+
+    token_info = verify_password_reset_token(token)
+    if not token_info:
+        return False, "El enlace o código de recuperación es inválido o ha caducado."
+
+    user_id = token_info["user_id"]
+    p_hash, salt = hash_password(str(new_password).strip())
+
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?", (p_hash, salt, user_id))
+        cursor.execute("UPDATE password_resets SET used = 1 WHERE token = ?", (token.strip(),))
+        cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        conn.commit()
+        return True, "Contraseña actualizada exitosamente."
+    finally:
+        conn.close()
+
+
+def sync_and_reset_credentials() -> dict:
+    """
+    Garantiza la configuración de credenciales de acceso para LiveSports:
+    - salvador@talentolive.es: is_admin = 1, role = 'admin', password = 'AdminLiveSports2026!'
+    - Resto de cuentas de prueba registradas: password = 'LiveSportsUser2026!'
+    Devuelve la lista de cuentas verificadas con sus roles.
+    """
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+
+        # 1. Asegurar columna is_admin
+        cursor.execute("PRAGMA table_info(users);")
+        user_cols = [c[1] for c in cursor.fetchall()]
+        if "is_admin" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;")
+            conn.commit()
+
+        # 2. Resetear salvador@talentolive.es
+        admin_hash, admin_salt = hash_password("AdminLiveSports2026!")
+        cursor.execute("""
+        UPDATE users 
+        SET password_hash = ?, salt = ?, role = 'admin', is_admin = 1
+        WHERE LOWER(email) = 'salvador@talentolive.es' OR LOWER(username) = 'admin'
+        """, (admin_hash, admin_salt))
+
+        # 3. Resetear el resto de cuentas de prueba en SQLite
+        user_hash, user_salt = hash_password("LiveSportsUser2026!")
+        cursor.execute("""
+        UPDATE users 
+        SET password_hash = ?, salt = ?
+        WHERE LOWER(email) != 'salvador@talentolive.es' AND LOWER(username) != 'admin'
+        """, (user_hash, user_salt))
+
+        conn.commit()
+
+        # 4. Obtener listado de cuentas verificadas
+        cursor.execute("""
+        SELECT id, username, email, role, is_admin, full_name, is_verified, created_at 
+        FROM users 
+        ORDER BY 
+          CASE WHEN role = 'admin' OR is_admin = 1 THEN 1 ELSE 2 END,
+          created_at ASC
+        """)
+        verified = []
+        for r in cursor.fetchall():
+            u = dict(r)
+            u["is_admin"] = bool(u.get("is_admin") or u.get("role") == "admin")
+            verified.append(u)
+
+        return {
+            "success": True,
+            "admin_account": "salvador@talentolive.es",
+            "admin_password": "AdminLiveSports2026!",
+            "user_password": "LiveSportsUser2026!",
+            "accounts": verified
+        }
+    finally:
+        conn.close()
+
 
 
 

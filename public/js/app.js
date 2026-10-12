@@ -454,6 +454,16 @@ document.addEventListener('DOMContentLoaded', () => {
         enterClubMode(clubParam);
       }, 200);
     }
+
+    // Soporte para enlace de recuperación de contraseña por URL (?reset_token=... o ?token=...)
+    const resetToken = urlParams.get('reset_token') || urlParams.get('token');
+    if (resetToken) {
+      setTimeout(() => {
+        if (typeof openResetPasswordView === 'function') {
+          openResetPasswordView(resetToken);
+        }
+      }, 300);
+    }
   } catch (_) {}
 });
 
@@ -4968,6 +4978,12 @@ window.addEventListener('hashchange', () => {
     openAuthModal('login');
   } else if (window.location.hash === '#register') {
     openAuthModal('register');
+  } else if (window.location.hash === '#reset-password' || window.location.hash === '#reset') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const resetToken = urlParams.get('reset_token') || urlParams.get('token');
+    openResetPasswordView(resetToken || '');
+  } else if (window.location.hash === '#forgot-password' || window.location.hash === '#forgot') {
+    openForgotPasswordView();
   }
 });
 
@@ -4976,17 +4992,55 @@ function switchAuthTab(tab) {
   const btnReg = document.getElementById('btn-tab-register');
   const formLogin = document.getElementById('form-login');
   const formReg = document.getElementById('form-register');
+  const viewForgot = document.getElementById('auth-view-forgot');
+  const viewReset = document.getElementById('auth-view-reset');
+  const tabsContainer = document.querySelector('#auth-modal .auth-tabs');
+  const modalTitle = document.getElementById('auth-modal-title');
+
+  // Ocultar todas las vistas
+  if (formLogin) formLogin.style.display = 'none';
+  if (formReg) formReg.style.display = 'none';
+  if (viewForgot) viewForgot.style.display = 'none';
+  if (viewReset) viewReset.style.display = 'none';
+
+  // Ocultar mensajes previos de error/éxito
+  const errBox = document.getElementById('login-error');
+  if (errBox) errBox.style.display = 'none';
+  const regErr = document.getElementById('register-error');
+  if (regErr) regErr.style.display = 'none';
+  const forgotErr = document.getElementById('forgot-error');
+  if (forgotErr) forgotErr.style.display = 'none';
+  const forgotSucc = document.getElementById('forgot-success');
+  if (forgotSucc) forgotSucc.style.display = 'none';
+  const resetErr = document.getElementById('reset-error');
+  if (resetErr) resetErr.style.display = 'none';
+  const resetSucc = document.getElementById('reset-success');
+  if (resetSucc) resetSucc.style.display = 'none';
 
   if (tab === 'login') {
-    btnLogin.classList.add('active');
-    btnReg.classList.remove('active');
-    formLogin.style.display = 'block';
-    formReg.style.display = 'none';
-  } else {
-    btnLogin.classList.remove('active');
-    btnReg.classList.add('active');
-    formLogin.style.display = 'none';
-    formReg.style.display = 'block';
+    if (tabsContainer) tabsContainer.style.display = 'flex';
+    if (btnLogin) btnLogin.classList.add('active');
+    if (btnReg) btnReg.classList.remove('active');
+    if (formLogin) formLogin.style.display = 'block';
+    if (modalTitle) modalTitle.textContent = 'Acceso y Registro de Usuarios';
+  } else if (tab === 'register') {
+    if (tabsContainer) tabsContainer.style.display = 'flex';
+    if (btnLogin) btnLogin.classList.remove('active');
+    if (btnReg) btnReg.classList.add('active');
+    if (formReg) formReg.style.display = 'block';
+    if (modalTitle) modalTitle.textContent = 'Acceso y Registro de Usuarios';
+  } else if (tab === 'forgot') {
+    if (tabsContainer) tabsContainer.style.display = 'none';
+    if (viewForgot) viewForgot.style.display = 'block';
+    if (modalTitle) modalTitle.textContent = 'Recuperar Contraseña';
+    const emailInput = document.getElementById('forgot-email');
+    if (emailInput) setTimeout(() => emailInput.focus(), 100);
+  } else if (tab === 'reset') {
+    if (tabsContainer) tabsContainer.style.display = 'none';
+    if (viewReset) viewReset.style.display = 'block';
+    if (modalTitle) modalTitle.textContent = 'Restablecer Contraseña';
+    const passInput = document.getElementById('reset-new-password');
+    if (passInput) setTimeout(() => passInput.focus(), 100);
   }
 }
 
@@ -5287,6 +5341,225 @@ async function handleRegisterSubmit(e) {
     }
   }
 }
+
+function openForgotPasswordView(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  openAuthModal();
+  switchAuthTab('forgot');
+}
+window.openForgotPasswordView = openForgotPasswordView;
+
+async function openResetPasswordView(token) {
+  openAuthModal();
+  switchAuthTab('reset');
+
+  const tokenInput = document.getElementById('reset-token-value');
+  if (tokenInput) tokenInput.value = token || '';
+
+  const infoText = document.getElementById('reset-token-info-text');
+  const errBox = document.getElementById('reset-error');
+  const submitBtn = document.getElementById('btn-submit-reset');
+
+  if (!token) {
+    if (errBox) {
+      errBox.textContent = 'No se ha detectado un token de recuperación válido. Por favor, solicita un nuevo enlace.';
+      errBox.style.display = 'block';
+    }
+    if (submitBtn) submitBtn.disabled = true;
+    return;
+  }
+
+  // Verificar el token en backend
+  try {
+    const res = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    if (!res.ok || !data.valid) {
+      if (errBox) {
+        errBox.textContent = data.error || 'El enlace de recuperación es inválido o ha caducado.';
+        errBox.style.display = 'block';
+      }
+      if (submitBtn) submitBtn.disabled = true;
+    } else {
+      if (errBox) errBox.style.display = 'none';
+      if (submitBtn) submitBtn.disabled = false;
+      if (infoText) {
+        const safeEmail = (data.email || '').replace(/[&<>"']/g, '');
+        const safeUser = (data.username || 'usuario').replace(/[&<>"']/g, '');
+        infoText.innerHTML = `Restableciendo contraseña para <strong>${safeEmail}</strong> (${safeUser}).`;
+      }
+    }
+  } catch (err) {
+    console.error('Error al verificar token:', err);
+  }
+}
+window.openResetPasswordView = openResetPasswordView;
+
+async function handleForgotPasswordSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const emailInput = document.getElementById('forgot-email');
+  const errBox = document.getElementById('forgot-error');
+  const succBox = document.getElementById('forgot-success');
+  const simBox = document.getElementById('forgot-simulated-box');
+  const simBtn = document.getElementById('btn-forgot-simulated-action');
+  const submitBtn = document.getElementById('btn-submit-forgot');
+
+  if (errBox) errBox.style.display = 'none';
+  if (succBox) succBox.style.display = 'none';
+  if (simBox) simBox.style.display = 'none';
+
+  const email = (emailInput?.value || '').trim();
+  if (!email) {
+    if (errBox) {
+      errBox.textContent = 'Por favor, introduce tu correo electrónico.';
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+  }
+
+  try {
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'No se pudo procesar la solicitud.');
+    }
+
+    if (succBox) {
+      succBox.textContent = data.message || 'Instrucciones enviadas correctamente a tu correo.';
+      succBox.style.display = 'block';
+    }
+
+    if (data.simulated && data.token) {
+      if (simBox) simBox.style.display = 'block';
+      if (simBtn) {
+        simBtn.onclick = () => {
+          openResetPasswordView(data.token);
+        };
+      }
+    }
+
+    showToast('📧 Instrucciones de recuperación tramitadas.', 'info');
+  } catch (err) {
+    if (errBox) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    } else {
+      showToast(err.message, 'error');
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enviar Enlace de Recuperación';
+    }
+  }
+}
+window.handleForgotPasswordSubmit = handleForgotPasswordSubmit;
+
+async function handleResetPasswordSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const token = (document.getElementById('reset-token-value')?.value || '').trim();
+  const newPass = (document.getElementById('reset-new-password')?.value || '').trim();
+  const confirmPass = (document.getElementById('reset-confirm-password')?.value || '').trim();
+  const errBox = document.getElementById('reset-error');
+  const succBox = document.getElementById('reset-success');
+  const submitBtn = document.getElementById('btn-submit-reset');
+
+  if (errBox) errBox.style.display = 'none';
+  if (succBox) succBox.style.display = 'none';
+
+  if (!token) {
+    if (errBox) {
+      errBox.textContent = 'Token de recuperación no válido o inexistente.';
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  if (newPass.length < 6) {
+    if (errBox) {
+      errBox.textContent = 'La contraseña debe contener al menos 6 caracteres.';
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  if (newPass !== confirmPass) {
+    if (errBox) {
+      errBox.textContent = 'Las contraseñas no coinciden. Por favor, verifícalas.';
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+  }
+
+  try {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password: newPass })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al restablecer la contraseña.');
+    }
+
+    if (succBox) {
+      succBox.textContent = data.message || '¡Contraseña restablecida con éxito! Redirigiendo a iniciar sesión...';
+      succBox.style.display = 'block';
+    }
+
+    showToast('✅ Contraseña restablecida con éxito', 'success');
+
+    // Limpiar inputs
+    if (document.getElementById('reset-new-password')) document.getElementById('reset-new-password').value = '';
+    if (document.getElementById('reset-confirm-password')) document.getElementById('reset-confirm-password').value = '';
+
+    // Limpiar parámetro de URL
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reset_token');
+      url.searchParams.delete('token');
+      url.hash = 'login';
+      window.history.replaceState({}, document.title, url.toString());
+    } catch (_) {}
+
+    setTimeout(() => {
+      switchAuthTab('login');
+      const identInput = document.getElementById('login-identity');
+      if (identInput) identInput.focus();
+    }, 1800);
+  } catch (err) {
+    if (errBox) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    } else {
+      showToast(err.message, 'error');
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar Nueva Contraseña';
+    }
+  }
+}
+window.handleResetPasswordSubmit = handleResetPasswordSubmit;
 
 async function logout() {
   const currentTok = state.token;

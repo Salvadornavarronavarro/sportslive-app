@@ -396,3 +396,160 @@ def start_weekly_digest_scheduler():
     )
     sched_thread.start()
     return sched_thread
+
+
+def send_password_reset_email(email: str, reset_url: str, token: str, username: str = None) -> dict:
+    """
+    Envía el correo de recuperación de contraseña con el enlace seguro y el token.
+    Si SMTP no está configurado, opera en modo de simulación segura y devuelve el enlace y token.
+    """
+    recipient = email.strip()
+    user_display = username or recipient.split("@")[0]
+
+    plain_body = f"""==================================================
+🔐 LIVESPORTS - RECUPERACIÓN DE CONTRASEÑA
+==================================================
+Hola, {user_display}:
+
+Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en LiveSports ({recipient}).
+
+Para crear una nueva contraseña, accede al siguiente enlace seguro:
+{reset_url}
+
+Código de recuperación directo:
+{token}
+
+Este enlace y código son válidos durante 1 hora.
+Si no has solicitado este cambio, puedes ignorar este correo; tu contraseña actual continuará siendo segura.
+
+--------------------------------------------------
+LiveSports • Plataforma de Deporte Base en Directo
+=================================================="""
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Recuperación de Contraseña - LiveSports</title>
+</head>
+<body style="margin:0; padding:0; background-color:#0b1120; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#e2e8f0;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0b1120; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="580" cellspacing="0" cellpadding="0" style="max-width:580px; width:100%; background-color:#0f172a; border-radius:12px; border:1px solid #1e293b; overflow:hidden; box-shadow:0 10px 25px -5px rgba(0, 0, 0, 0.5);">
+          
+          <!-- Encabezado con branding -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); padding: 24px 28px; text-align: left;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">LiveSports</h1>
+              <p style="margin: 6px 0 0 0; color: #e0f2fe; font-size: 14px;">Recuperación de Contraseña</p>
+            </td>
+          </tr>
+
+          <!-- Contenido Principal -->
+          <tr>
+            <td style="padding: 28px;">
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #f8fafc; line-height: 1.5;">
+                Hola <strong>{user_display}</strong>,
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #cbd5e1; line-height: 1.6;">
+                Hemos recibido una solicitud para restablecer la contraseña asociada a tu cuenta (<strong>{recipient}</strong>) en LiveSports. Haz clic en el botón para definir tu nueva contraseña:
+              </p>
+
+              <!-- Botón CTA -->
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+                <tr>
+                  <td align="center" style="border-radius: 8px; background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);">
+                    <a href="{reset_url}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; padding: 12px 28px; display: inline-block; border-radius: 8px;">
+                      Restablecer Mi Contraseña →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Caja de Token Alternativo -->
+              <div style="background: #1e293b; border-radius: 8px; border: 1px solid rgba(56,189,248,0.2); padding: 14px 18px; margin: 20px 0;">
+                <span style="font-size: 12px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Código de recuperación directo:</span>
+                <code style="font-family: monospace; font-size: 13px; color: #38bdf8; word-break: break-all;">{token}</code>
+              </div>
+
+              <p style="margin: 16px 0 0 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
+                ⏳ Este enlace expirará en <strong>1 hora</strong> por motivos de seguridad.<br>
+                Si tú no has solicitado este cambio, puedes ignorar este mensaje; tu contraseña actual continuará siendo segura.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Pie de página -->
+          <tr>
+            <td style="background:#090d16; padding:16px 28px; border-top:1px solid #1e293b; text-align:center;">
+              <p style="margin:0; font-size:12px; color:#64748b;">
+                LiveSports • Plataforma de Deporte Base en Directo • Mensaje automático de seguridad.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    # Modo simulación si SMTP_HOST no está configurado
+    if not SMTP_HOST:
+        print(f"🔐 [LiveSports Password Reset] SMTP no configurado (modo simulación).")
+        print(f"   Destinatario: {recipient}")
+        print(f"   Token: {token}")
+        print(f"   Enlace directo: {reset_url}")
+        return {
+            "sent": True,
+            "simulated": True,
+            "recipient": recipient,
+            "token": token,
+            "reset_url": reset_url,
+            "message": f"Modo simulación: enlace de recuperación generado para {recipient}."
+        }
+
+    # Envío real a través de SMTP
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "🔐 LiveSports: Recuperación de contraseña"
+        msg["From"] = SMTP_FROM
+        msg["To"] = recipient
+
+        part1 = MIMEText(plain_body, "plain", "utf-8")
+        part2 = MIMEText(html_body, "html", "utf-8")
+        msg.attach(part1)
+        msg.attach(part2)
+
+        if SMTP_USE_SSL or SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20)
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20)
+            server.starttls()
+
+        if SMTP_USER and SMTP_PASS:
+            server.login(SMTP_USER, SMTP_PASS)
+
+        server.sendmail(SMTP_FROM, [recipient], msg.as_string())
+        server.quit()
+
+        print(f"✅ [LiveSports Password Reset] Email de recuperación enviado a {recipient}.")
+        return {
+            "sent": True,
+            "simulated": False,
+            "recipient": recipient,
+            "message": f"Enlace de recuperación enviado exitosamente a {recipient}."
+        }
+    except Exception as err:
+        err_msg = str(err)
+        print(f"⚠️ [LiveSports Password Reset Error]: {err_msg}")
+        return {
+            "sent": False,
+            "simulated": False,
+            "error": f"Error SMTP al enviar correo a {recipient}: {err_msg}",
+            "token": token,
+            "reset_url": reset_url
+        }
+

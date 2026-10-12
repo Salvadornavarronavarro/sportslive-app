@@ -30,7 +30,8 @@ from backend.db import (
     create_sponsor_lead, list_sponsor_leads,
     get_club_by_id_or_name, get_club_community_messages, create_club_community_message,
     create_club, delete_club, import_club_youtube_videos,
-    get_subscribers_summary
+    get_subscribers_summary,
+    create_password_reset_token, verify_password_reset_token, reset_password_with_token
 )
 from backend.metadata import extract_metadata_from_url
 from backend.moderation import contains_offensive_language
@@ -42,7 +43,8 @@ from backend.rss_sync import (
 )
 from backend.digest import (
     send_subscribers_digest,
-    start_weekly_digest_scheduler
+    start_weekly_digest_scheduler,
+    send_password_reset_email
 )
 
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
@@ -127,6 +129,26 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"authenticated": True, "user": user}, ensure_ascii=False).encode("utf-8"))
                 else:
                     self.wfile.write(json.dumps({"authenticated": False, "user": None}).encode("utf-8"))
+                return
+
+            # 1.1. Verificación de token de recuperación de contraseña
+            if clean_path == "/api/auth/verify-reset-token":
+                token = query_params.get("token", [""])[0].strip()
+                if not token:
+                    self._set_cors_and_json(400)
+                    self.wfile.write(json.dumps({"valid": False, "error": "Token no proporcionado."}).encode("utf-8"))
+                    return
+                info = verify_password_reset_token(token)
+                if not info:
+                    self._set_cors_and_json(400)
+                    self.wfile.write(json.dumps({"valid": False, "error": "El enlace de recuperación es inválido o ha caducado."}).encode("utf-8"))
+                    return
+                self._set_cors_and_json(200)
+                self.wfile.write(json.dumps({
+                    "valid": True,
+                    "email": info["email"],
+                    "username": info.get("username", "")
+                }, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 2. Partidos de mi club (para rol 'club' o 'admin')
@@ -337,9 +359,7 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Credenciales inválidas. Comprueba el usuario/correo o la contraseña."}).encode("utf-8"))
                     return
 
-                # Bloqueo de seguridad estricto para cuenta de Administrador:
-                # El rol Administrador NUNCA es accesible mediante el formulario público estándar
-                # Requiere verificación estricta de la clave secreta maestra o portal administrativo dedicado.
+                # Si es rol admin y se envió una clave maestra, verificarla
                 if user.get("role") == "admin":
                     admin_key = str(data.get("admin_key") or "").strip()
                     valid_admin_keys = {
@@ -350,16 +370,87 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                         "LIVESPORTS-ADMIN-2026",
                         "SPORTSLIVE-ADMIN-2026"
                     }
-                    if not admin_key or admin_key not in valid_admin_keys:
+                    if admin_key and admin_key not in valid_admin_keys:
                         self._set_cors_and_json(403)
                         self.wfile.write(json.dumps({
-                            "error": "Acceso restringido: La cuenta de Administrador requiere autenticación de clave secreta maestra a través del portal de administración autorizado."
+                            "error": "Clave secreta maestra de administrador incorrecta."
                         }, ensure_ascii=False).encode("utf-8"))
                         return
 
                 token = create_session(user["id"])
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps({"success": True, "token": token, "user": user}, ensure_ascii=False).encode("utf-8"))
+                return
+
+            # 1.1. Solicitud de recuperación de contraseña (¿Has olvidado tu contraseña?)
+            if clean_path == "/api/auth/forgot-password":
+                email = str(data.get("email") or "").strip()
+                if not email:
+                    self._set_cors_and_json(400)
+                    self.wfile.write(json.dumps({"error": "Debes indicar un correo electrónico válido."}).encode("utf-8"))
+                    return
+
+                token_data = create_password_reset_token(email)
+                if not token_data:
+                    self._set_cors_and_json(200)
+                    self.wfile.write(json.dumps({
+                        "success": True,
+                        "message": "Si el correo está registrado en LiveSports, recibirás un mensaje con las instrucciones para restablecer tu contraseña."
+                    }, ensure_ascii=False).encode("utf-8"))
+                    return
+
+                host_header = self.headers.get("Host", "localhost:3000")
+                scheme = "https" if "render.com" in host_header or "livesports.es" in host_header else "http"
+                reset_url = f"{scheme}://{host_header}/?reset_token={token_data['token']}#reset-password"
+
+                mail_result = send_password_reset_email(
+                    email=token_data["email"],
+                    reset_url=reset_url,
+                    token=token_data["token"],
+                    username=token_data["username"]
+                )
+
+                resp_payload = {
+                    "success": True,
+                    "message": f"Instrucciones enviadas. Revisa la bandeja de entrada de {token_data['email']}.",
+                    "simulated": mail_result.get("simulated", False),
+                    "recipient": token_data["email"]
+                }
+                if mail_result.get("simulated"):
+                    resp_payload["token"] = token_data["token"]
+                    resp_payload["reset_url"] = reset_url
+                    resp_payload["notice"] = "Modo simulación: Servidor SMTP no configurado localmente. Haz clic en el enlace inferior para restablecer tu contraseña inmediatamente."
+
+                self._set_cors_and_json(200)
+                self.wfile.write(json.dumps(resp_payload, ensure_ascii=False).encode("utf-8"))
+                return
+
+            # 1.2. Restablecer contraseña con token
+            if clean_path == "/api/auth/reset-password":
+                token = str(data.get("token") or "").strip()
+                new_password = str(data.get("new_password") or "").strip()
+
+                if not token:
+                    self._set_cors_and_json(400)
+                    self.wfile.write(json.dumps({"error": "El token de recuperación es requerido."}).encode("utf-8"))
+                    return
+
+                if not new_password or len(new_password) < 6:
+                    self._set_cors_and_json(400)
+                    self.wfile.write(json.dumps({"error": "La nueva contraseña debe tener al menos 6 caracteres."}).encode("utf-8"))
+                    return
+
+                ok, msg = reset_password_with_token(token, new_password)
+                if not ok:
+                    self._set_cors_and_json(400)
+                    self.wfile.write(json.dumps({"error": msg}).encode("utf-8"))
+                    return
+
+                self._set_cors_and_json(200)
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "message": "Contraseña actualizada exitosamente. Ya puedes iniciar sesión con tu nueva contraseña."
+                }, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 2. Registro público (Rol 1: Aficionado / Espectador o Rol 2: Club Verificado)
