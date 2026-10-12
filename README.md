@@ -46,7 +46,7 @@ No requiere instalaciones complejas ni dependencias pesadas de Node/npm. Funcion
 
 ```bash
 # Opción 1: Ejecutar el lanzador rápido (abre el navegador automáticamente)
-./Iniciar_SportsLive.command
+./Iniciar_LiveSports.command
 
 # Opción 2: Ejecutar el script principal
 python3 run.py
@@ -63,8 +63,8 @@ Una vez iniciado, abre en tu navegador:
 ## 📁 Estructura del Proyecto
 
 ```text
-├── Iniciar_SportsLive.command # Lanzador ejecutable directo para macOS
-├── SportsLive.app         # Aplicación nativa de macOS (Doble clic)
+├── Iniciar_LiveSports.command # Lanzador ejecutable directo para macOS (LiveSports)
+├── Iniciar_SportsLive.command # Lanzador de compatibilidad
 ├── run.py                 # Script de arranque rápido con apertura en navegador
 ├── test_platform.py       # Suite de pruebas unitarias y funcionales (100% de cobertura)
 ├── talentolive.db         # Base de datos SQLite persistente con partidos de muestra
