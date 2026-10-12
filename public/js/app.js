@@ -2232,6 +2232,177 @@ function updateFeaturedSidebar(filtered) {
   }
 }
 
+function getClubCrestUrl(clubObj, events = []) {
+  if (clubObj) {
+    if (clubObj.shield_url && typeof clubObj.shield_url === 'string' && clubObj.shield_url.trim()) {
+      return clubObj.shield_url.trim();
+    }
+    if (clubObj.logo_url && typeof clubObj.logo_url === 'string' && clubObj.logo_url.trim()) {
+      return clubObj.logo_url.trim();
+    }
+    if (clubObj.logo && typeof clubObj.logo === 'string' && clubObj.logo.trim() && (clubObj.logo.startsWith('http') || clubObj.logo.startsWith('/'))) {
+      return clubObj.logo.trim();
+    }
+  }
+  for (const e of events) {
+    if (!e) continue;
+    if (e.shield_url && typeof e.shield_url === 'string' && e.shield_url.trim()) return e.shield_url.trim();
+    if (e.club_shield_url && typeof e.club_shield_url === 'string' && e.club_shield_url.trim()) return e.club_shield_url.trim();
+    if (e.logo_url && typeof e.logo_url === 'string' && e.logo_url.trim()) return e.logo_url.trim();
+  }
+  return '';
+}
+
+function getClubCrestIcon(clubObj, events = []) {
+  if (clubObj) {
+    if (clubObj.shield_icon && typeof clubObj.shield_icon === 'string' && clubObj.shield_icon.trim()) {
+      return clubObj.shield_icon.trim();
+    }
+    if (clubObj.sport_icon && typeof clubObj.sport_icon === 'string' && clubObj.sport_icon.trim()) {
+      return clubObj.sport_icon.trim();
+    }
+  }
+  for (const e of events) {
+    if (!e) continue;
+    if (e.sport_icon && typeof e.sport_icon === 'string' && e.sport_icon.trim()) return e.sport_icon.trim();
+  }
+  return '🛡️';
+}
+
+function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
+  if (!container) return 0;
+  container.innerHTML = '';
+
+  const followedNames = state.favoriteClubs || [];
+  const allClubs = state.allClubs || [];
+  let totalSections = 0;
+
+  // 1. Iterar individualmente sobre cada club seguido por el usuario
+  followedNames.forEach(clubName => {
+    const clubObj = allClubs.find(c =>
+      (c.name && c.name.toLowerCase() === String(clubName).toLowerCase()) ||
+      (c.id && c.id.toLowerCase() === String(clubName).toLowerCase())
+    );
+
+    // Obtener todas las emisiones de este club específico
+    const clubEvents = cleanEvents.filter(e => isEventOfClub(e, clubName));
+
+    // Ordenar estrictamente por fecha/hora descendente (priorizando LIVE primero si existe)
+    clubEvents.sort((a, b) => {
+      const aLive = a.status === 'LIVE' ? 1 : 0;
+      const bLive = b.status === 'LIVE' ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+      const tA = a.date_time ? new Date(a.date_time).getTime() : 0;
+      const tB = b.date_time ? new Date(b.date_time).getTime() : 0;
+      return tB - tA;
+    });
+
+    // ÚNICAMENTE las últimas 4 emisiones
+    const latest4 = clubEvents.slice(0, 4);
+
+    const officialName = clubObj ? clubObj.name : (clubEvents[0] ? (clubEvents[0].club_name || clubEvents[0].home_team || clubName) : clubName);
+    const crestUrl = getClubCrestUrl(clubObj, clubEvents);
+    const crestIcon = getClubCrestIcon(clubObj, clubEvents);
+    const clubParam = clubObj ? (clubObj.id || clubObj.name) : clubName;
+
+    const rowSection = document.createElement('section');
+    rowSection.className = 'fav-club-row-section';
+    rowSection.setAttribute('aria-label', `Emisiones de ${officialName}`);
+
+    // Club Header: Escudo <img> + Nombre oficial + Separador limpio
+    const headerEl = document.createElement('div');
+    headerEl.className = 'fav-club-row-header';
+    headerEl.innerHTML = `
+      <div class="fav-club-row-brand">
+        <div class="fav-club-row-crest-box">
+          ${crestUrl 
+            ? `<img src="${sanitizeUrl(crestUrl)}" alt="${escapeHtml(officialName)}" class="fav-club-row-crest" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
+               <span class="fav-club-row-crest-fallback" style="display:none;" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
+            : `<span class="fav-club-row-crest-fallback" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
+          }
+        </div>
+        <h4 class="fav-club-row-name">${escapeHtml(officialName)}</h4>
+        <span class="fav-club-row-count-badge">${latest4.length} ${latest4.length === 1 ? 'emisión' : 'emisiones'}</span>
+      </div>
+      <button type="button" class="fav-club-row-channel-btn" onclick="enterClubMode('${escapeHtml(clubParam).replace(/'/g, "\\'")}')" title="Ver canal oficial de ${escapeHtml(officialName)}">
+        <span>Canal Oficial</span> <span>➔</span>
+      </button>
+    `;
+    rowSection.appendChild(headerEl);
+
+    // Contenedor de vídeos: Máximo 4 vídeos en fila de 4 columnas (o scroll en mobile/tablet)
+    const videosRow = document.createElement('div');
+    videosRow.className = 'fav-club-videos-row';
+
+    if (latest4.length > 0) {
+      latest4.forEach((evt, idx) => {
+        const card = createMatchCard(evt, idx);
+        card.classList.add('fav-scaled-card');
+        videosRow.appendChild(card);
+      });
+    } else {
+      videosRow.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 0.55rem 0.8rem; color: #94a3b8; font-size: 0.68rem; text-align: center; background: rgba(255,255,255,0.02); border-radius: 6px;">
+          Actualmente no hay emisiones recientes registradas para este club.
+        </div>
+      `;
+    }
+
+    rowSection.appendChild(videosRow);
+    container.appendChild(rowSection);
+    totalSections++;
+  });
+
+  // 2. Si el usuario también tiene partidos favoritos individuales guardados (sin club seguido asociado)
+  const individualFavMatches = cleanEvents.filter(e => 
+    state.favorites.includes(e.id) && 
+    !(followedNames.length > 0 && isEventOfFavoriteClub(e, followedNames))
+  );
+
+  if (individualFavMatches.length > 0) {
+    individualFavMatches.sort((a, b) => {
+      const aLive = a.status === 'LIVE' ? 1 : 0;
+      const bLive = b.status === 'LIVE' ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+      const tA = a.date_time ? new Date(a.date_time).getTime() : 0;
+      const tB = b.date_time ? new Date(b.date_time).getTime() : 0;
+      return tB - tA;
+    });
+
+    const latestMatches = individualFavMatches.slice(0, 4);
+    const rowSection = document.createElement('section');
+    rowSection.className = 'fav-club-row-section';
+    rowSection.setAttribute('aria-label', 'Partidos Favoritos Guardados');
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'fav-club-row-header';
+    headerEl.innerHTML = `
+      <div class="fav-club-row-brand">
+        <div class="fav-club-row-crest-box">
+          <span class="fav-club-row-crest-fallback" aria-hidden="true">⭐</span>
+        </div>
+        <h4 class="fav-club-row-name">Partidos Guardados Directamente</h4>
+        <span class="fav-club-row-count-badge">${latestMatches.length} ${latestMatches.length === 1 ? 'partido' : 'partidos'}</span>
+      </div>
+    `;
+    rowSection.appendChild(headerEl);
+
+    const videosRow = document.createElement('div');
+    videosRow.className = 'fav-club-videos-row';
+    latestMatches.forEach((evt, idx) => {
+      const card = createMatchCard(evt, idx);
+      card.classList.add('fav-scaled-card');
+      videosRow.appendChild(card);
+    });
+
+    rowSection.appendChild(videosRow);
+    container.appendChild(rowSection);
+    totalSections++;
+  }
+
+  return totalSections;
+}
+
 function applyFilters() {
   if (!state.allEvents || state.allEvents.length === 0) {
     if (!state.hasFetchedEvents && !state.isFetchingEvents) {
@@ -2292,7 +2463,7 @@ function applyFilters() {
 
   if (sectionTitle) {
     if (isFavoritesView) {
-      sectionTitle.innerHTML = '⭐ En Directo y Última Semana de tus Favoritos';
+      sectionTitle.innerHTML = '⭐ En Directo y Emisiones de tus Favoritos';
     } else {
       sectionTitle.textContent = 'Partidos en Directo';
     }
@@ -2309,22 +2480,14 @@ function applyFilters() {
     return matchClub || matchEvt;
   };
 
-  // Rellenar tarjetas a escala en el banner destacado de favoritos
+  // Renderizar sección de favoritos agrupada por club con las últimas 4 emisiones
   const favMediaGrid = document.getElementById('fav-media-cards-grid');
   if (favMediaGrid) {
     if (hasFavorites && !state.activeClubMode) {
-      const favMatches = cleanEvents.filter(isFavoriteEvent);
-      if (favMatches.length > 0) {
-        favMediaGrid.style.display = 'grid';
-        favMediaGrid.innerHTML = '';
-        favMatches.slice(0, 4).forEach((evt, idx) => {
-          const card = createMatchCard(evt, idx);
-          card.classList.add('fav-scaled-card');
-          favMediaGrid.appendChild(card);
-        });
-      } else {
+      favMediaGrid.style.display = 'flex';
+      const renderedCount = renderFavoriteClubsGroupedSection(favMediaGrid, cleanEvents);
+      if (renderedCount === 0) {
         favMediaGrid.style.display = 'none';
-        favMediaGrid.innerHTML = '';
       }
     } else {
       favMediaGrid.style.display = 'none';
