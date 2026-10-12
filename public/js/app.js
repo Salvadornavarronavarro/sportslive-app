@@ -4803,13 +4803,14 @@ async function initAuthSession() {
     updateChatVisibility();
     renderDiscoveryBanner();
     const isPathAdmin = window.location.pathname === '/admin' || window.location.pathname.endsWith('/admin');
-    const isHashAdmin = window.location.hash === '#admin' || window.location.hash === '#admin-login' || window.location.hash === '#admin-modal';
-    const isQueryAdmin = new URLSearchParams(window.location.search).get('open_admin') === '1' || new URLSearchParams(window.location.search).get('admin') === '1' || new URLSearchParams(window.location.search).get('portal') === 'admin';
+    const isHashAdmin = window.location.hash === '#admin' || window.location.hash === '#admin-login' || window.location.hash === '#admin-modal' || window.location.hash === '#admin-subscribers';
+    const isQueryAdmin = new URLSearchParams(window.location.search).get('open_admin') === '1' || new URLSearchParams(window.location.search).get('open_admin') === 'subscribers' || new URLSearchParams(window.location.search).get('admin') === '1' || new URLSearchParams(window.location.search).get('portal') === 'admin';
 
     if (state.currentUser && state.currentUser.role === 'admin') {
       if (isQueryAdmin || isHashAdmin || isPathAdmin) {
-        openAdminModal();
-        if (new URLSearchParams(window.location.search).get('open_admin') === '1') {
+        const targetTab = (new URLSearchParams(window.location.search).get('open_admin') === 'subscribers' || window.location.hash === '#admin-subscribers') ? 'subscribers' : 'matches';
+        openAdminModal(targetTab);
+        if (new URLSearchParams(window.location.search).has('open_admin')) {
           const cleanUrl = window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
         }
@@ -4854,9 +4855,13 @@ function renderUserHeader() {
           <span class="capsule-btn-arrow">⌄</span>
         </button>
         <div class="floating-dropdown-menu user-dropdown-menu" id="menu-admin-user" role="menu">
-          <button type="button" class="dropdown-item btn-admin-panel" id="btn-header-admin-panel" onclick="openAdminModal(); closeAllCapsuleDropdowns();" title="⚙️ Abrir Panel de Gestión y Moderación">
+          <button type="button" class="dropdown-item btn-admin-panel" id="btn-header-admin-panel" onclick="openAdminModal('matches'); closeAllCapsuleDropdowns();" title="⚙️ Abrir Panel de Gestión y Moderación">
             <span class="item-icon">⚙️</span>
-            <span>Abrir Panel Admin</span>
+            <span>Panel de Control</span>
+          </button>
+          <button type="button" class="dropdown-item btn-admin-subscribers" id="btn-header-admin-subscribers" onclick="openAdminModal('subscribers'); closeAllCapsuleDropdowns();" title="📋 Administración y Registro de Suscriptores">
+            <span class="item-icon">📋</span>
+            <span>Administración / Registros</span>
           </button>
           <div class="dropdown-divider"></div>
           <button type="button" class="dropdown-item btn-logout" onclick="logout(); closeAllCapsuleDropdowns();" title="Cerrar sesión">
@@ -5599,7 +5604,7 @@ async function clubDeleteMatch(eventId) {
    9. PANEL DE CONTROL GLOBAL (ADMINISTRADOR - SALVADOR)
    ========================================================== */
 
-async function openAdminModal() {
+async function openAdminModal(initialTab = null) {
   if (typeof closeMobileNav === 'function') closeMobileNav();
   if (!state.currentUser || state.currentUser.role !== 'admin') {
     showToast('Acceso exclusivo para el Administrador.', 'error');
@@ -5611,6 +5616,10 @@ async function openAdminModal() {
 
   modal.classList.add('active');
   document.body.style.overflow = 'hidden';
+
+  if (initialTab) {
+    switchAdminTab(initialTab);
+  }
 
   await loadAdminData();
 }
@@ -5624,13 +5633,16 @@ function closeAdminModal() {
 }
 
 function switchAdminTab(tab) {
-  const tabs = ['matches', 'clubs', 'users', 'stats'];
+  const tabs = ['matches', 'clubs', 'users', 'subscribers', 'stats'];
   tabs.forEach(t => {
     const btn = document.getElementById(`btn-admin-tab-${t}`);
     const view = document.getElementById(`admin-tab-${t}`);
     if (btn) btn.classList.toggle('active', t === tab);
     if (view) view.style.display = t === tab ? 'block' : 'none';
   });
+  if (tab === 'subscribers') {
+    loadAdminSubscribers();
+  }
 }
 
 async function triggerAdminRssSync() {
@@ -5708,6 +5720,13 @@ async function loadAdminData() {
     if (resUsers.ok) {
       state.adminUsers = await resUsers.json();
       renderAdminUsersTable(state.adminUsers);
+    }
+
+    // 3.b. Cargar suscriptores y registros
+    try {
+      await loadAdminSubscribers();
+    } catch (eSubs) {
+      console.warn('Error cargando suscriptores:', eSubs);
     }
 
     // 4. Cargar estadísticas
@@ -5855,6 +5874,180 @@ function renderAdminUsersTable(users) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+/* ==========================================================
+   9.0.b GESTIÓN DE SUSCRIPTORES Y REGISTROS (ADMIN)
+   ========================================================== */
+
+async function loadAdminSubscribers() {
+  try {
+    const res = await fetch('/api/admin/subscribers', {
+      headers: (typeof getAuthHeaders === 'function') ? getAuthHeaders(false) : {}
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.adminSubscribersData = data;
+
+      const totalEl = document.getElementById('admin-subscribers-count');
+      const newEl = document.getElementById('admin-subscribers-new-count');
+      const badgeTotal = document.getElementById('badge-total-subscribers');
+
+      if (totalEl) totalEl.textContent = data.total || 0;
+      if (newEl) newEl.textContent = `+${data.new_last_7_days || 0}`;
+      if (badgeTotal) badgeTotal.textContent = `${data.total || 0} usuarios`;
+
+      renderAdminSubscribersTable(data.subscribers || []);
+    } else if (res.status === 403) {
+      console.warn('Acceso restringido a suscriptores (solo admin).');
+    }
+  } catch (err) {
+    console.error('Error cargando suscriptores:', err);
+  }
+}
+
+function renderAdminSubscribersTable(subscribers) {
+  const tbody = document.getElementById('admin-subscribers-tbody');
+  if (!tbody) return;
+
+  if (!subscribers || subscribers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 2.5rem 1rem; color: #94a3b8;">
+      <span style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;">🔍</span>
+      No se encontraron suscriptores registrados que coincidan con la búsqueda.
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  subscribers.forEach(sub => {
+    const tr = document.createElement('tr');
+
+    const email = escapeHtml(sub.email || 'Sin correo');
+    const name = escapeHtml(sub.full_name || sub.username || 'Usuario');
+    const role = sub.role || 'viewer';
+
+    let roleBadge = '';
+    if (role === 'admin') {
+      roleBadge = '<span class="user-badge-pill role-admin">👑 Admin</span>';
+    } else if (role === 'club') {
+      const clubExtra = sub.club_name ? ` (${escapeHtml(sub.club_name)})` : '';
+      roleBadge = `<span class="user-badge-pill role-club">🛡️ Club${clubExtra}</span>`;
+    } else {
+      roleBadge = '<span class="user-badge-pill role-viewer">👤 Aficionado</span>';
+    }
+
+    // Fecha formateada
+    let regDateText = '-';
+    if (sub.created_at) {
+      try {
+        const dt = new Date(sub.created_at);
+        if (!isNaN(dt.getTime())) {
+          regDateText = dt.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } else {
+          regDateText = sub.created_at.substring(0, 10);
+        }
+      } catch (e) {
+        regDateText = sub.created_at.substring(0, 10);
+      }
+    }
+
+    // Badge "Nuevo" si está registrado en los últimos 7 días
+    const newBadge = sub.is_new_7_days 
+      ? '<span style="background: #10b981; color: #ffffff; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 6px; margin-left: 6px; text-transform: uppercase;">NUEVO</span>' 
+      : '';
+
+    // Clubes seguidos
+    let favsHtml = '';
+    const favs = sub.favorite_clubs || [];
+    if (favs.length > 0) {
+      favsHtml = `<div class="sub-fav-clubs-wrap">` + favs.map(c => `<span class="sub-fav-pill">${escapeHtml(c)}</span>`).join('') + `</div>`;
+    } else {
+      favsHtml = '<span style="color: #64748b; font-size: 0.78rem; font-style: italic;">Sin favoritos</span>';
+    }
+
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight: 600; color: #f8fafc; display: flex; align-items: center;">
+          <a href="mailto:${email}" style="color: #38bdf8; text-decoration: none;">${email}</a>
+          ${newBadge}
+        </div>
+      </td>
+      <td>
+        <span style="color: #cbd5e1; font-weight: 500;">${name}</span>
+        ${sub.username && sub.username !== sub.full_name ? `<br><small style="color: #64748b;">@${escapeHtml(sub.username)}</small>` : ''}
+      </td>
+      <td>${roleBadge}</td>
+      <td><span style="color: #94a3b8; font-size: 0.8rem;">${regDateText}</span></td>
+      <td>${favsHtml}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterAdminSubscribers() {
+  const query = (document.getElementById('admin-search-subscribers')?.value || '').trim().toLowerCase();
+  if (!state.adminSubscribersData || !state.adminSubscribersData.subscribers) return;
+
+  if (!query) {
+    renderAdminSubscribersTable(state.adminSubscribersData.subscribers);
+    return;
+  }
+
+  const filtered = state.adminSubscribersData.subscribers.filter(sub => {
+    const email = (sub.email || '').toLowerCase();
+    const name = (sub.full_name || '').toLowerCase();
+    const username = (sub.username || '').toLowerCase();
+    const role = (sub.role || '').toLowerCase();
+    const club = (sub.club_name || '').toLowerCase();
+    const favs = (sub.favorite_clubs || []).join(' ').toLowerCase();
+
+    return email.includes(query) || name.includes(query) || username.includes(query) || role.includes(query) || club.includes(query) || favs.includes(query);
+  });
+
+  renderAdminSubscribersTable(filtered);
+}
+
+async function triggerAdminSendDigestNow() {
+  const btn = document.getElementById('btn-admin-send-digest');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> <span>Enviando Resumen...</span>';
+  }
+
+  try {
+    const res = await fetch('/api/admin/send-digest-now', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getAuthHeaders === 'function' ? getAuthHeaders(false) : {})
+      },
+      body: JSON.stringify({})
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al enviar el resumen');
+    }
+
+    if (data.simulated) {
+      showToast(`📧 ${data.message}`, 'info');
+    } else {
+      showToast(`✅ Resumen semanal enviado con éxito a ${data.recipient || 'la administración'}.`, 'success');
+    }
+
+    // Actualizar datos de suscriptores
+    await loadAdminSubscribers();
+
+  } catch (err) {
+    console.error('Error triggerAdminSendDigestNow:', err);
+    showToast(`Error al enviar resumen: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
 }
 
 async function adminToggleVerification(userId, nextStatus) {

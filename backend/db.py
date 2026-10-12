@@ -14,7 +14,7 @@ from data.geo import get_province_info, CCAA_PROVINCIAS
 from data.sports import get_sport_info
 from backend.metadata import extract_metadata_from_url
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "talentolive.db")
+DB_PATH = os.environ.get("DATABASE_PATH", os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "talentolive.db")))
 LEGACY_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "grada_directo.db")
 DEFAULT_EVENTS_JSON_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "default_events.json")
 
@@ -3412,5 +3412,83 @@ def import_club_youtube_videos(club_id: str, videos: list) -> list:
         return created_events
     finally:
         conn.close()
+
+
+def get_subscribers_summary():
+    """
+    Obtiene la lista completa de suscriptores y usuarios registrados con:
+    - Conteo total
+    - Conteo de nuevos registros en los últimos 7 días
+    - Listado con email, nombre/usuario, rol, club_name, fecha de registro y clubes favoritos seguidos
+    """
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, created_at, favorite_clubs
+        FROM users
+        ORDER BY created_at DESC
+        """)
+        rows = cursor.fetchall()
+        subscribers = []
+        now = datetime.datetime.now()
+        seven_days_ago = now - datetime.timedelta(days=7)
+        new_last_7_days = 0
+
+        for r in rows:
+            u_dict = dict(r) if not isinstance(r, dict) else r
+            uid = u_dict.get("id")
+
+            # Parsear clubes favoritos
+            favs = []
+            raw_favs = u_dict.get("favorite_clubs")
+            if raw_favs:
+                try:
+                    parsed = json.loads(raw_favs) if isinstance(raw_favs, str) else raw_favs
+                    if isinstance(parsed, list):
+                        favs = parsed
+                except Exception:
+                    pass
+            if not favs and uid:
+                favs = get_user_favorite_clubs(uid)
+
+            # Verificar si es nuevo en los últimos 7 días
+            created_at_str = u_dict.get("created_at") or ""
+            is_new = False
+            if created_at_str:
+                try:
+                    clean_dt_str = created_at_str.replace("Z", "").split("+")[0]
+                    reg_dt = datetime.datetime.fromisoformat(clean_dt_str)
+                    if reg_dt >= seven_days_ago:
+                        is_new = True
+                except Exception:
+                    pass
+
+            if is_new:
+                new_last_7_days += 1
+
+            subscribers.append({
+                "id": uid,
+                "email": u_dict.get("email") or "",
+                "username": u_dict.get("username") or "",
+                "full_name": u_dict.get("full_name") or u_dict.get("username") or "",
+                "role": u_dict.get("role") or "viewer",
+                "club_name": u_dict.get("club_name") or "",
+                "cif": u_dict.get("cif") or "",
+                "location": u_dict.get("location") or "",
+                "is_verified": bool(u_dict.get("is_verified")),
+                "created_at": created_at_str,
+                "favorite_clubs": favs,
+                "is_new_7_days": is_new
+            })
+
+        return {
+            "total": len(subscribers),
+            "new_last_7_days": new_last_7_days,
+            "subscribers": subscribers
+        }
+    finally:
+        conn.close()
+
 
 

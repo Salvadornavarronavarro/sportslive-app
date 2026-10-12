@@ -29,7 +29,8 @@ from backend.db import (
     get_event_chat_messages, create_chat_message,
     create_sponsor_lead, list_sponsor_leads,
     get_club_by_id_or_name, get_club_community_messages, create_club_community_message,
-    create_club, delete_club, import_club_youtube_videos
+    create_club, delete_club, import_club_youtube_videos,
+    get_subscribers_summary
 )
 from backend.metadata import extract_metadata_from_url
 from backend.moderation import contains_offensive_language
@@ -38,6 +39,10 @@ from backend.rss_sync import (
     sync_club_rss,
     get_last_rss_sync_info,
     start_rss_background_poller
+)
+from backend.digest import (
+    send_subscribers_digest,
+    start_weekly_digest_scheduler
 )
 
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
@@ -149,6 +154,18 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                 users = list_users()
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(users, ensure_ascii=False).encode("utf-8"))
+                return
+
+            # 3.b. Administración: Listado de suscriptores y métricas (solo admin)
+            if clean_path == "/api/admin/subscribers":
+                user = self._get_current_user()
+                if not user or user.get("role") != "admin":
+                    self._set_cors_and_json(403)
+                    self.wfile.write(json.dumps({"error": "Acceso restringido a administradores."}).encode("utf-8"))
+                    return
+                subscribers_data = get_subscribers_summary()
+                self._set_cors_and_json(200)
+                self.wfile.write(json.dumps(subscribers_data, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 4. Administración: Listado de clubes (solo admin)
@@ -711,6 +728,25 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": f"Error durante la sincronización RSS: {str(err)}"}).encode("utf-8"))
                     return
 
+            # 4.7. Administración: Envío manual / inmediato de resumen semanal de suscriptores (solo admin)
+            if clean_path == "/api/admin/send-digest-now":
+                user = self._get_current_user()
+                if not user or user.get("role") != "admin":
+                    self._set_cors_and_json(403)
+                    self.wfile.write(json.dumps({"error": "Solo administradores pueden enviar el resumen semanal de suscriptores."}).encode("utf-8"))
+                    return
+
+                target_email = data.get("target_email") if isinstance(data, dict) else None
+                try:
+                    result = send_subscribers_digest(target_email=target_email, is_manual=True)
+                    self._set_cors_and_json(200 if result.get("success") else 500)
+                    self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+                    return
+                except Exception as err:
+                    self._set_cors_and_json(500)
+                    self.wfile.write(json.dumps({"error": f"Error al generar/enviar el resumen semanal: {str(err)}"}).encode("utf-8"))
+                    return
+
             # 5. Creación de retransmisión (Panel de Club / Enviar Emisión)
             if clean_path == "/api/events":
                 user = self._get_current_user()
@@ -1026,6 +1062,10 @@ def run_server(port=3000, on_ready=None):
         start_rss_background_poller(interval_minutes=45)
     except Exception as _e:
         print(f"⚠️ No se pudo iniciar el poller RSS en segundo plano: {_e}")
+    try:
+        start_weekly_digest_scheduler()
+    except Exception as _e:
+        print(f"⚠️ No se pudo iniciar el scheduler de resumen semanal: {_e}")
     for p in [port, 3001, 8080, 8000]:
         try:
             server_address = ("", p)

@@ -1047,6 +1047,9 @@
           <button class="auth-tab-btn" id="btn-admin-tab-users" type="button" onclick="switchAdminTab('users')">
             👥 Gestión de Usuarios y Cuentas
           </button>
+          <button class="auth-tab-btn" id="btn-admin-tab-subscribers" type="button" onclick="switchAdminTab('subscribers')">
+            📋 Suscriptores y Registros
+          </button>
           <button class="auth-tab-btn" id="btn-admin-tab-stats" type="button" onclick="switchAdminTab('stats')">
             📊 Métricas y Copias
           </button>
@@ -1269,7 +1272,63 @@
           </div>
         </div>
 
-        <!-- Vista 3: Métricas y Copias de Seguridad -->
+        <!-- Vista 4: Suscriptores y Registro de Usuarios -->
+        <div id="admin-tab-subscribers" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h4 style="margin: 0; color: #f1f5f9; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📋 Suscriptores y Registro de Usuarios</span>
+                <span id="badge-total-subscribers" style="background: rgba(56,189,248,0.2); color: #38bdf8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(56,189,248,0.4); font-weight: 700;">0 usuarios</span>
+              </h4>
+              <span style="font-size: 0.8rem; color: #94a3b8;">Supervisión de correos electrónicos registrados, fechas de alta, clubes favoritos seguidos y envío de informe semanal</span>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn-send-digest" id="btn-admin-send-digest" onclick="triggerAdminSendDigestNow()" title="Generar y enviar inmediatamente el resumen semanal de suscriptores por correo">
+                <span class="send-icon">📧</span>
+                <span>Enviar Resumen por Email Ahora</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Métricas rápidas de suscriptores -->
+          <div class="admin-stats-cards" style="margin-bottom: 1.25rem;">
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-subscribers-count">0</span>
+              <span class="stat-label">Total Suscriptores / Cuentas</span>
+            </div>
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-subscribers-new-count" style="color: #10b981;">0</span>
+              <span class="stat-label">Nuevos en los Últimos 7 Días</span>
+            </div>
+            <div class="admin-stat-card">
+              <span class="stat-num" id="admin-subscribers-digest-status" style="font-size: 1.1rem; color: #38bdf8;">Automático</span>
+              <span class="stat-label">Frecuencia Digest Semanal</span>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+            <input type="text" id="admin-search-subscribers" class="form-input" placeholder="Filtrar por correo electrónico, nombre, rol o club seguido..." oninput="filterAdminSubscribers()">
+          </div>
+
+          <div class="admin-table-wrapper">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Correo Electrónico</th>
+                  <th>Nombre / Usuario</th>
+                  <th>Rol</th>
+                  <th>Fecha de Registro</th>
+                  <th>Clubes Seguidos</th>
+                </tr>
+              </thead>
+              <tbody id="admin-subscribers-tbody">
+                <!-- Rellenado por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vista 5: Métricas y Copias de Seguridad -->
         <div id="admin-tab-stats" style="display: none;">
           <div class="admin-stats-cards">
             <div class="admin-stat-card">

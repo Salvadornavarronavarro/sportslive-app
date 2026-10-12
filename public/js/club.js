@@ -146,9 +146,13 @@ function renderUserHeader(user) {
             <span class="capsule-btn-arrow">⌄</span>
           </button>
           <div class="floating-dropdown-menu user-dropdown-menu" id="menu-admin-user" role="menu">
-            <button type="button" class="dropdown-item btn-admin-panel" id="btn-header-admin-panel" onclick="window.location.href='/?open_admin=1'" title="⚙️ Abrir Panel de Gestión y Moderación">
+            <button type="button" class="dropdown-item btn-admin-panel" id="btn-header-admin-panel" onclick="window.location.href='/?open_admin=1'" title="⚙️ Abrir Panel de Control">
               <span class="item-icon">⚙️</span>
-              <span class="capsule-btn-text">Abrir Panel Admin</span>
+              <span class="capsule-btn-text">Panel de Control</span>
+            </button>
+            <button type="button" class="dropdown-item btn-admin-subscribers" id="btn-header-admin-subscribers" onclick="window.location.href='/?open_admin=subscribers'" title="📋 Administración y Registro de Suscriptores">
+              <span class="item-icon">📋</span>
+              <span class="capsule-btn-text">Administración / Registros</span>
             </button>
             <div class="dropdown-divider"></div>
             <button type="button" class="dropdown-item btn-logout" onclick="handleLogout()" title="Cerrar sesión">
