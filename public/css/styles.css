@@ -3492,19 +3492,19 @@ iframe#main-player-iframe {
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
 }
 
-/* Columna Izquierda (Ancho fijo ~160px - 180px) centrada verticalmente */
+/* Columna Izquierda (Ancho fijo ~150px en escritorio): Escudo ~52px x 52px, nombre, categoría y botón canal */
 .fav-club-row-left-col {
-  width: 170px;
-  min-width: 160px;
-  max-width: 180px;
-  flex: 0 0 170px;
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;
+  flex: 0 0 150px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  gap: 0.4rem;
-  padding: 0.75rem 0.6rem;
+  gap: 0.35rem;
+  padding: 0.70rem 0.5rem;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
@@ -3512,23 +3512,31 @@ iframe#main-player-iframe {
 }
 
 .fav-club-left-crest-box {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  max-width: 52px;
+  max-height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
   flex-shrink: 0;
+  margin: 0 auto;
 }
 
 .club-row-badge,
 .fav-club-left-crest {
-  width: 100%;
-  height: 100%;
+  width: 52px;
+  height: 52px;
+  max-width: 52px;
+  max-height: 52px;
   object-fit: contain;
+  display: block;
 }
 
 .fav-club-left-crest-fallback {
@@ -3623,12 +3631,97 @@ iframe#main-player-iframe {
   box-sizing: border-box;
 }
 
-/* Comportamiento responsive en Tablets y Móviles:
-   Scroll horizontal fluido con snap para explorar los 4 vídeos */
-@media (max-width: 960px) {
+/* Comportamiento responsive en iPad y Tablets (768px a 1024px en portrait y landscape):
+   Columna izquierda compacta (~130px) y franja derecha con scroll snap suave sin deformar las 4 tarjetas (mínimo 190px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .fav-club-row-section {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.70rem 0.65rem;
+  }
+
+  .fav-club-row-left-col {
+    width: 130px;
+    min-width: 130px;
+    max-width: 130px;
+    flex: 0 0 130px;
+    padding: 0.6rem 0.4rem;
+    gap: 0.3rem;
+  }
+
+  .fav-club-left-crest-box {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    margin: 0 auto;
+  }
+
+  .club-row-badge,
+  .fav-club-left-crest {
+    width: 50px;
+    height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    object-fit: contain;
+  }
+
+  .fav-club-left-name {
+    font-size: 0.76rem;
+    line-height: 1.2;
+  }
+
+  .club-row-category-badge,
+  .fav-club-left-category-badge {
+    font-size: 0.54rem;
+    padding: 0.08rem 0.35rem;
+  }
+
+  .fav-club-left-channel-link {
+    font-size: 0.58rem;
+    padding: 0.2rem 0.35rem;
+  }
+
+  .fav-club-row-right-container {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 8px;
+    padding-bottom: 4px;
+    padding-top: 2px;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .fav-club-row-right-container::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .fav-club-row-right-container .match-card {
+    flex: 0 0 190px;
+    min-width: 190px;
+    max-width: 220px;
+    scroll-snap-align: start;
+    box-sizing: border-box;
+  }
+}
+
+/* Comportamiento responsive en Móviles (< 768px):
+   Cabecera compacta del club en la parte superior y carrusel horizontal de vídeos inferior */
+@media (max-width: 767px) {
   .fav-club-row-section {
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.60rem;
     padding: 0.65rem;
   }
 
@@ -3646,20 +3739,38 @@ iframe#main-player-iframe {
   }
 
   .fav-club-left-crest-box {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    max-width: 44px;
+    max-height: 44px;
+    margin: 0;
+  }
+
+  .club-row-badge,
+  .fav-club-left-crest {
+    width: 44px;
+    height: 44px;
+    max-width: 44px;
+    max-height: 44px;
+    object-fit: contain;
   }
 
   .fav-club-left-name {
-    font-size: 0.82rem;
+    font-size: 0.80rem;
     white-space: nowrap;
     -webkit-line-clamp: 1;
+    text-align: left;
+    flex: 1;
+    min-width: 0;
   }
 
   .club-row-category-badge,
   .fav-club-left-category-badge {
-    font-size: 0.56rem;
+    font-size: 0.54rem;
     padding: 0.08rem 0.35rem;
+    display: none;
   }
 
   .fav-club-left-channel-link {
@@ -3667,6 +3778,7 @@ iframe#main-player-iframe {
     margin-top: 0;
     margin-left: auto;
     padding: 0.2rem 0.5rem;
+    font-size: 0.60rem;
   }
 
   .fav-club-row-right-container,
@@ -3679,7 +3791,7 @@ iframe#main-player-iframe {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    gap: 0.5rem;
+    gap: 8px;
     padding-bottom: 4px;
     padding-top: 2px;
     width: 100%;
@@ -3694,8 +3806,8 @@ iframe#main-player-iframe {
 
   .fav-club-row-right-container .match-card,
   .matches-grid.favorites-view-grid .match-card {
-    flex: 0 0 calc(50% - 0.25rem);
-    min-width: 155px;
+    flex: 0 0 calc(55% - 0.25rem);
+    min-width: 165px;
     max-width: 215px;
     scroll-snap-align: start;
     box-sizing: border-box;

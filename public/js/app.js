@@ -2232,30 +2232,105 @@ function updateFeaturedSidebar(filtered) {
   }
 }
 
+const KNOWN_CLUB_CRESTS = {
+  'cf-intercity': 'https://yt3.googleusercontent.com/QMrvMPA1wc8up1C-itBZ536RihM27o-AUJlTFgp_8Lefz7VMwyLzoUX-2sQw1Mb_MoUCA9yg=s900-c-k-c0x00ffffff-no-rj',
+  'cf intercity': 'https://yt3.googleusercontent.com/QMrvMPA1wc8up1C-itBZ536RihM27o-AUJlTFgp_8Lefz7VMwyLzoUX-2sQw1Mb_MoUCA9yg=s900-c-k-c0x00ffffff-no-rj',
+  'real-federacion-espanola-de-boxeo-rfebox': 'https://yt3.googleusercontent.com/oGmTiEO99djmxDH-fmcHbkCx-nS_jpgXiDaCmParWmeOa9evG56RaunL3Qz25whBLRoZicPj=s900-c-k-c0x00ffffff-no-rj',
+  'real federación española de boxeo rfebox': 'https://yt3.googleusercontent.com/oGmTiEO99djmxDH-fmcHbkCx-nS_jpgXiDaCmParWmeOa9evG56RaunL3Qz25whBLRoZicPj=s900-c-k-c0x00ffffff-no-rj',
+  'real federacion espanola de boxeo rfebox': 'https://yt3.googleusercontent.com/oGmTiEO99djmxDH-fmcHbkCx-nS_jpgXiDaCmParWmeOa9evG56RaunL3Qz25whBLRoZicPj=s900-c-k-c0x00ffffff-no-rj',
+  'rfebox': 'https://yt3.googleusercontent.com/oGmTiEO99djmxDH-fmcHbkCx-nS_jpgXiDaCmParWmeOa9evG56RaunL3Qz25whBLRoZicPj=s900-c-k-c0x00ffffff-no-rj',
+  'climent-club': 'https://yt3.googleusercontent.com/QZOH2BLfv7N7XLdvhLjMPoRgGRjX0jutVc6WQcfZtaZ3qDVsy4NDk617DS1AwQlgg8G9p5T8Qw=s900-c-k-c0x00ffffff-no-rj',
+  'climent club': 'https://yt3.googleusercontent.com/QZOH2BLfv7N7XLdvhLjMPoRgGRjX0jutVc6WQcfZtaZ3qDVsy4NDk617DS1AwQlgg8G9p5T8Qw=s900-c-k-c0x00ffffff-no-rj',
+  'lucentum-alicante': 'https://yt3.googleusercontent.com/ytc/AIdro_kJAxh5Nq649hda_2fmj-WCTzc9vZtm64Ils-L8bqAnnA=s900-c-k-c0x00ffffff-no-rj',
+  'lucentum alicante': 'https://yt3.googleusercontent.com/ytc/AIdro_kJAxh5Nq649hda_2fmj-WCTzc9vZtm64Ils-L8bqAnnA=s900-c-k-c0x00ffffff-no-rj',
+  'cbf-elda-prestigio': 'https://yt3.googleusercontent.com/fxgE7Gy82IuHyW-3whw6clgJreE62i4Mvv_Q3gY5u9zQsxTVgyz3-taNbSnfMMpAPWs2qeT6eys=s900-c-k-c0x00ffffff-no-rj',
+  'cbf elda prestigio': 'https://yt3.googleusercontent.com/fxgE7Gy82IuHyW-3whw6clgJreE62i4Mvv_Q3gY5u9zQsxTVgyz3-taNbSnfMMpAPWs2qeT6eys=s900-c-k-c0x00ffffff-no-rj'
+};
+
 function getClubCrestUrl(clubObj, events = []) {
   if (clubObj) {
-    if (clubObj.shield_url && typeof clubObj.shield_url === 'string' && clubObj.shield_url.trim()) {
-      return clubObj.shield_url.trim();
+    const candidateProps = [
+      clubObj.shield_url,
+      clubObj.logo,
+      clubObj.crest,
+      clubObj.escudo_url,
+      clubObj.logo_url,
+      clubObj.crest_url,
+      clubObj.escudo,
+      clubObj.shield,
+      clubObj.badge_url,
+      clubObj.badge,
+      clubObj.avatar_url,
+      clubObj.image_url,
+      clubObj.thumbnail
+    ];
+    for (const prop of candidateProps) {
+      if (typeof prop === 'string' && prop.trim() && (prop.startsWith('http://') || prop.startsWith('https://') || prop.startsWith('/') || prop.startsWith('data:image/'))) {
+        return prop.trim();
+      }
     }
-    if (clubObj.logo_url && typeof clubObj.logo_url === 'string' && clubObj.logo_url.trim()) {
-      return clubObj.logo_url.trim();
-    }
-    if (clubObj.logo && typeof clubObj.logo === 'string' && clubObj.logo.trim() && (clubObj.logo.startsWith('http') || clubObj.logo.startsWith('/'))) {
-      return clubObj.logo.trim();
-    }
+    const idKey = (clubObj.id || '').toLowerCase().trim();
+    const nameKey = (clubObj.name || '').toLowerCase().trim();
+    if (KNOWN_CLUB_CRESTS[idKey]) return KNOWN_CLUB_CRESTS[idKey];
+    if (KNOWN_CLUB_CRESTS[nameKey]) return KNOWN_CLUB_CRESTS[nameKey];
   }
   for (const e of events) {
     if (!e) continue;
-    if (e.shield_url && typeof e.shield_url === 'string' && e.shield_url.trim()) return e.shield_url.trim();
-    if (e.club_shield_url && typeof e.club_shield_url === 'string' && e.club_shield_url.trim()) return e.club_shield_url.trim();
-    if (e.logo_url && typeof e.logo_url === 'string' && e.logo_url.trim()) return e.logo_url.trim();
+    const eProps = [
+      e.shield_url,
+      e.club_shield_url,
+      e.logo_url,
+      e.club_logo_url,
+      e.logo,
+      e.crest,
+      e.escudo_url,
+      e.crest_url,
+      e.sponsor_logo
+    ];
+    for (const prop of eProps) {
+      if (typeof prop === 'string' && prop.trim() && (prop.startsWith('http://') || prop.startsWith('https://') || prop.startsWith('/') || prop.startsWith('data:image/'))) {
+        return prop.trim();
+      }
+    }
+    const cId = (e.club_id || '').toLowerCase().trim();
+    const cName = (e.club_name || e.home_team || '').toLowerCase().trim();
+    if (KNOWN_CLUB_CRESTS[cId]) return KNOWN_CLUB_CRESTS[cId];
+    if (KNOWN_CLUB_CRESTS[cName]) return KNOWN_CLUB_CRESTS[cName];
   }
   return '';
 }
 
+function getClubFallbackCrestSvg(clubName = '', sportId = '', sportIcon = '') {
+  const safeName = String(clubName || 'Club').trim();
+  const initials = safeName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('') || 'LS';
+  const cleanIcon = (sportIcon && sportIcon !== '🔵⚪' && sportIcon !== '🛡️') ? sportIcon : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">` +
+    `<defs>` +
+      `<linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">` +
+        `<stop offset="0%" stop-color="#1e293b"/>` +
+        `<stop offset="100%" stop-color="#0f172a"/>` +
+      `</linearGradient>` +
+      `<linearGradient id="strokeGrad" x1="0%" y1="0%" x2="100%" y2="100%">` +
+        `<stop offset="0%" stop-color="#38bdf8"/>` +
+        `<stop offset="100%" stop-color="#0284c7"/>` +
+      `</linearGradient>` +
+    `</defs>` +
+    `<rect width="52" height="52" rx="26" fill="#0b1329"/>` +
+    `<path d="M26 6 L43 11 C43 27 36 39 26 46 C16 39 9 27 9 11 Z" fill="url(#shieldGrad)" stroke="url(#strokeGrad)" stroke-width="1.8"/>` +
+    (cleanIcon ? `<text x="26" y="24" font-size="13" text-anchor="middle" dominant-baseline="central">${cleanIcon}</text>` : '') +
+    `<text x="26" y="${cleanIcon ? '36' : '27'}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="${cleanIcon ? '9' : '13'}" fill="#38bdf8" text-anchor="middle" dominant-baseline="central" letter-spacing="0.5">${initials}</text>` +
+  `</svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
 function getClubCrestIcon(clubObj, events = []) {
   if (clubObj) {
-    if (clubObj.shield_icon && typeof clubObj.shield_icon === 'string' && clubObj.shield_icon.trim()) {
+    if (clubObj.shield_icon && typeof clubObj.shield_icon === 'string' && clubObj.shield_icon.trim() && clubObj.shield_icon.trim() !== '🔵⚪') {
       return clubObj.shield_icon.trim();
     }
     if (clubObj.sport_icon && typeof clubObj.sport_icon === 'string' && clubObj.sport_icon.trim()) {
@@ -2264,7 +2339,7 @@ function getClubCrestIcon(clubObj, events = []) {
   }
   for (const e of events) {
     if (!e) continue;
-    if (e.sport_icon && typeof e.sport_icon === 'string' && e.sport_icon.trim()) return e.sport_icon.trim();
+    if (e.sport_icon && typeof e.sport_icon === 'string' && e.sport_icon.trim() && e.sport_icon.trim() !== '🔵⚪') return e.sport_icon.trim();
   }
   return '🛡️';
 }
@@ -2279,10 +2354,12 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
 
   // 1. Iterar individualmente sobre cada club seguido por el usuario
   followedNames.forEach(clubName => {
-    const clubObj = allClubs.find(c =>
-      (c.name && c.name.toLowerCase() === String(clubName).toLowerCase()) ||
-      (c.id && c.id.toLowerCase() === String(clubName).toLowerCase())
-    );
+    const sName = String(clubName || '').toLowerCase().trim();
+    const clubObj = allClubs.find(c => {
+      const cid = String(c.id || '').toLowerCase().trim();
+      const cname = String(c.name || '').toLowerCase().trim();
+      return cid === sName || cname === sName || (sName && (cid.includes(sName) || cname.includes(sName) || sName.includes(cid) || sName.includes(cname)));
+    });
 
     // Obtener todas las emisiones de este club específico
     const clubEvents = cleanEvents.filter(e => isEventOfClub(e, clubName));
@@ -2303,6 +2380,8 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
     const officialName = clubObj ? clubObj.name : (clubEvents[0] ? (clubEvents[0].club_name || clubEvents[0].home_team || clubName) : clubName);
     const crestUrl = getClubCrestUrl(clubObj, clubEvents);
     const crestIcon = getClubCrestIcon(clubObj, clubEvents);
+    const fallbackSvg = getClubFallbackCrestSvg(officialName, clubObj ? clubObj.sport_id : '', crestIcon);
+    const displayCrest = crestUrl || fallbackSvg;
     const clubParam = clubObj ? (clubObj.id || clubObj.name) : clubName;
 
     const categoryName = (clubObj && clubObj.category && clubObj.category.trim())
@@ -2319,16 +2398,18 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
     rowSection.className = 'fav-club-row-section';
     rowSection.setAttribute('aria-label', `Emisiones de ${officialName}`);
 
-    // Columna Izquierda (Ancho fijo ~160px - 180px): Escudo (<img class="club-row-badge">), nombre oficial y categoría, centrados verticalmente
+    // Columna Izquierda (Ancho fijo ~150px en escritorio): Escudo ~52px x 52px con fallback SVG, nombre oficial, categoría y botón canal
     const leftCol = document.createElement('div');
     leftCol.className = 'fav-club-row-left-col';
     leftCol.innerHTML = `
       <div class="fav-club-left-crest-box">
-        ${crestUrl 
-          ? `<img src="${sanitizeUrl(crestUrl)}" alt="${escapeHtml(officialName)}" class="club-row-badge fav-club-left-crest" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
-             <span class="fav-club-left-crest-fallback" style="display:none;" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
-          : `<span class="fav-club-left-crest-fallback" aria-hidden="true">${escapeHtml(crestIcon)}</span>`
-        }
+        <img src="${sanitizeUrl(displayCrest)}" 
+             alt="${escapeHtml(officialName)}" 
+             class="club-row-badge fav-club-left-crest" 
+             width="52" 
+             height="52" 
+             loading="lazy" 
+             onerror="this.onerror=null; this.src='${fallbackSvg}';">
       </div>
       <h3 class="fav-club-left-name" title="${escapeHtml(officialName)}">${escapeHtml(officialName)}</h3>
       <span class="club-row-category-badge fav-club-left-category-badge" title="${escapeHtml(categoryName)}">${escapeHtml(categoryName)}</span>

@@ -649,6 +649,19 @@ def _run_init_schema(conn):
         """)
         conn.commit()
 
+        # Asegurar escudos oficiales y logos verificados para los clubes de referencia
+        official_crests = {
+            "cf-intercity": "https://yt3.googleusercontent.com/QMrvMPA1wc8up1C-itBZ536RihM27o-AUJlTFgp_8Lefz7VMwyLzoUX-2sQw1Mb_MoUCA9yg=s900-c-k-c0x00ffffff-no-rj",
+            "real-federacion-espanola-de-boxeo-rfebox": "https://yt3.googleusercontent.com/oGmTiEO99djmxDH-fmcHbkCx-nS_jpgXiDaCmParWmeOa9evG56RaunL3Qz25whBLRoZicPj=s900-c-k-c0x00ffffff-no-rj",
+            "climent-club": "https://yt3.googleusercontent.com/QZOH2BLfv7N7XLdvhLjMPoRgGRjX0jutVc6WQcfZtaZ3qDVsy4NDk617DS1AwQlgg8G9p5T8Qw=s900-c-k-c0x00ffffff-no-rj",
+            "lucentum-alicante": "https://yt3.googleusercontent.com/ytc/AIdro_kJAxh5Nq649hda_2fmj-WCTzc9vZtm64Ils-L8bqAnnA=s900-c-k-c0x00ffffff-no-rj",
+            "cbf-elda-prestigio": "https://yt3.googleusercontent.com/fxgE7Gy82IuHyW-3whw6clgJreE62i4Mvv_Q3gY5u9zQsxTVgyz3-taNbSnfMMpAPWs2qeT6eys=s900-c-k-c0x00ffffff-no-rj"
+        }
+        for c_id, s_url in official_crests.items():
+            cursor.execute("UPDATE clubs SET shield_url = ? WHERE id = ? AND (shield_url IS NULL OR shield_url = '' OR shield_url LIKE '%unsplash%');", (s_url, c_id))
+        cursor.execute("UPDATE clubs SET shield_icon = sport_icon WHERE shield_icon = '🔵⚪';")
+        conn.commit()
+
         # Eliminación estricta de clubes mock y contenidos residuales de prueba
         cursor.execute("""
         DELETE FROM clubs 
@@ -798,7 +811,7 @@ def seed_default_production_clubs(cursor):
         now_iso = datetime.datetime.now().isoformat()
         initial_clubs = [
             (
-                "cf-intercity", "CF INTERCITY", "", "🔵⚪", "Alicante",
+                "cf-intercity", "CF INTERCITY", "https://yt3.googleusercontent.com/QMrvMPA1wc8up1C-itBZ536RihM27o-AUJlTFgp_8Lefz7VMwyLzoUX-2sQw1Mb_MoUCA9yg=s900-c-k-c0x00ffffff-no-rj", "⚽", "Alicante",
                 "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
                 "Segunda Federación (Grupo 3)", "futbol", "Fútbol", "⚽",
                 "https://www.youtube.com/@CFINTERCITY", 1,
@@ -806,7 +819,7 @@ def seed_default_production_clubs(cursor):
                 now_iso
             ),
             (
-                "real-federacion-espanola-de-boxeo-rfebox", "Real Federación Española de Boxeo RFEBox", "", "🔵⚪", "España",
+                "real-federacion-espanola-de-boxeo-rfebox", "Real Federación Española de Boxeo RFEBox", "https://yt3.googleusercontent.com/oGmTiEO99djmxDH-fmcHbkCx-nS_jpgXiDaCmParWmeOa9evG56RaunL3Qz25whBLRoZicPj=s900-c-k-c0x00ffffff-no-rj", "🥊", "España",
                 "madrid", "Madrid", "madrid", "Comunidad de Madrid",
                 "Nacional", "contacto", "Boxeo y deportes de contacto", "🥊",
                 "https://www.youtube.com/@RFEBox", 1,
@@ -814,7 +827,7 @@ def seed_default_production_clubs(cursor):
                 now_iso
             ),
             (
-                "climent-club", "CLIMENT CLUB", "", "🔵⚪", "Alicante",
+                "climent-club", "CLIMENT CLUB", "https://yt3.googleusercontent.com/QZOH2BLfv7N7XLdvhLjMPoRgGRjX0jutVc6WQcfZtaZ3qDVsy4NDk617DS1AwQlgg8G9p5T8Qw=s900-c-k-c0x00ffffff-no-rj", "🥊", "Alicante",
                 "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
                 "Nacional", "contacto", "Boxeo y deportes de contacto", "🥊",
                 "https://www.youtube.com/@CLIMENTCLUBspain", 1,
@@ -822,7 +835,7 @@ def seed_default_production_clubs(cursor):
                 now_iso
             ),
             (
-                "lucentum-alicante", "Lucentum Alicante", "", "🔵⚪", "Alicante",
+                "lucentum-alicante", "Lucentum Alicante", "https://yt3.googleusercontent.com/ytc/AIdro_kJAxh5Nq649hda_2fmj-WCTzc9vZtm64Ils-L8bqAnnA=s900-c-k-c0x00ffffff-no-rj", "🏀", "Alicante",
                 "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
                 "Primera FEB", "baloncesto", "Baloncesto", "🏀",
                 "https://www.youtube.com/@fundlucentum", 1,
@@ -830,7 +843,7 @@ def seed_default_production_clubs(cursor):
                 now_iso
             ),
             (
-                "cbf-elda-prestigio", "CBF Elda Prestigio", "", "🔵⚪", "Elda/Alicante",
+                "cbf-elda-prestigio", "CBF Elda Prestigio", "https://yt3.googleusercontent.com/fxgE7Gy82IuHyW-3whw6clgJreE62i4Mvv_Q3gY5u9zQsxTVgyz3-taNbSnfMMpAPWs2qeT6eys=s900-c-k-c0x00ffffff-no-rj", "🤾", "Elda/Alicante",
                 "alicante", "Alicante", "comunidad-valenciana", "Comunidad Valenciana",
                 "Liga Guerreras Iberdrola/División de Honor Femenina", "balonmano", "Balonmano", "🤾",
                 "https://www.youtube.com/@cbfeldaprestigio", 1,
