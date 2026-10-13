@@ -2354,7 +2354,12 @@ function getClubCrestIcon(clubObj, events = []) {
   return '🛡️';
 }
 
-function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
+function isEventLive(e) {
+  if (!e) return false;
+  return e.status === 'LIVE' || e.is_live === true || String(e.status).toUpperCase() === 'LIVE';
+}
+
+function renderPerClubHorizontalRows(container, cleanEvents = [], isFavoritesOnly = false) {
   if (!container) return 0;
   container.innerHTML = '';
 
@@ -2362,22 +2367,76 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
   const allClubs = state.allClubs || [];
   let totalSections = 0;
 
-  // 1. Iterar individualmente sobre cada club seguido por el usuario
-  followedNames.forEach(clubName => {
-    const sName = String(clubName || '').toLowerCase().trim();
-    const clubObj = allClubs.find(c => {
-      const cid = String(c.id || '').toLowerCase().trim();
-      const cname = String(c.name || '').toLowerCase().trim();
-      return cid === sName || cname === sName || (sName && (cid.includes(sName) || cname.includes(sName) || sName.includes(cid) || sName.includes(cname)));
+  const clubsToRender = [];
+  const seenClubKeys = new Set();
+
+  if (isFavoritesOnly && followedNames.length > 0) {
+    // 1. En vista exclusiva de favoritos, sólo los clubes seguidos
+    followedNames.forEach(clubName => {
+      const sName = String(clubName || '').toLowerCase().trim();
+      const clubObj = allClubs.find(c => {
+        const cid = String(c.id || '').toLowerCase().trim();
+        const cname = String(c.name || '').toLowerCase().trim();
+        return cid === sName || cname === sName || (sName && (cid.includes(sName) || cname.includes(sName) || sName.includes(cid) || sName.includes(cname)));
+      });
+      const clubKey = (clubObj ? (clubObj.id || clubObj.name) : clubName).toLowerCase();
+      if (!seenClubKeys.has(clubKey)) {
+        seenClubKeys.add(clubKey);
+        clubsToRender.push({ clubObj, clubName });
+      }
+    });
+  } else {
+    // 2. En catálogo general (predeterminado para todos: invitados y registrados):
+    // Prioridad 1: Clubes favoritos del usuario si existen
+    if (followedNames.length > 0) {
+      followedNames.forEach(clubName => {
+        const sName = String(clubName || '').toLowerCase().trim();
+        const clubObj = allClubs.find(c => {
+          const cid = String(c.id || '').toLowerCase().trim();
+          const cname = String(c.name || '').toLowerCase().trim();
+          return cid === sName || cname === sName || (sName && (cid.includes(sName) || cname.includes(sName) || sName.includes(cid) || sName.includes(cname)));
+        });
+        const clubKey = (clubObj ? (clubObj.id || clubObj.name) : clubName).toLowerCase();
+        if (!seenClubKeys.has(clubKey)) {
+          seenClubKeys.add(clubKey);
+          clubsToRender.push({ clubObj, clubName });
+        }
+      });
+    }
+
+    // Prioridad 2: Todos los demás clubes oficiales registrados
+    allClubs.forEach(clubObj => {
+      const clubKey = (clubObj.id || clubObj.name || '').toLowerCase();
+      if (!seenClubKeys.has(clubKey)) {
+        seenClubKeys.add(clubKey);
+        clubsToRender.push({ clubObj, clubName: clubObj.name });
+      }
     });
 
+    // Prioridad 3: Cualquier club presente en cleanEvents que no esté en allClubs
+    cleanEvents.forEach(evt => {
+      const cId = (evt.club_id || evt.club_name || evt.home_team || '').toLowerCase().trim();
+      if (cId && !seenClubKeys.has(cId)) {
+        seenClubKeys.add(cId);
+        clubsToRender.push({ clubObj: null, clubName: evt.club_name || evt.home_team || cId });
+      }
+    });
+  }
+
+  // Iterar individualmente sobre cada club
+  clubsToRender.forEach(({ clubObj, clubName }) => {
     // Obtener todas las emisiones de este club específico
-    const clubEvents = cleanEvents.filter(e => isEventOfClub(e, clubName));
+    const clubEvents = cleanEvents.filter(e => isEventOfClub(e, clubObj || clubName));
+
+    // Si estamos en catálogo general y este club no tiene emisiones con los filtros actuales, no mostrar su fila
+    if (!isFavoritesOnly && clubEvents.length === 0) {
+      return;
+    }
 
     // Ordenar estrictamente por fecha/hora descendente (priorizando LIVE primero si existe)
     clubEvents.sort((a, b) => {
-      const aLive = a.status === 'LIVE' ? 1 : 0;
-      const bLive = b.status === 'LIVE' ? 1 : 0;
+      const aLive = isEventLive(a) ? 1 : 0;
+      const bLive = isEventLive(b) ? 1 : 0;
       if (aLive !== bLive) return bLive - aLive;
       const tA = a.date_time ? new Date(a.date_time).getTime() : 0;
       const tB = b.date_time ? new Date(b.date_time).getTime() : 0;
@@ -2452,53 +2511,59 @@ function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
     totalSections++;
   });
 
-  // 2. Si el usuario también tiene partidos favoritos individuales guardados (sin club seguido asociado)
-  const individualFavMatches = cleanEvents.filter(e => 
-    state.favorites.includes(e.id) && 
-    !(followedNames.length > 0 && isEventOfFavoriteClub(e, followedNames))
-  );
+  // Si estamos en modo favoritos y el usuario también tiene partidos favoritos individuales guardados (sin club seguido asociado)
+  if (isFavoritesOnly) {
+    const individualFavMatches = cleanEvents.filter(e => 
+      state.favorites.includes(e.id) && 
+      !(followedNames.length > 0 && isEventOfFavoriteClub(e, followedNames))
+    );
 
-  if (individualFavMatches.length > 0) {
-    individualFavMatches.sort((a, b) => {
-      const aLive = a.status === 'LIVE' ? 1 : 0;
-      const bLive = b.status === 'LIVE' ? 1 : 0;
-      if (aLive !== bLive) return bLive - aLive;
-      const tA = a.date_time ? new Date(a.date_time).getTime() : 0;
-      const tB = b.date_time ? new Date(b.date_time).getTime() : 0;
-      return tB - tA;
-    });
+    if (individualFavMatches.length > 0) {
+      individualFavMatches.sort((a, b) => {
+        const aLive = isEventLive(a) ? 1 : 0;
+        const bLive = isEventLive(b) ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+        const tA = a.date_time ? new Date(a.date_time).getTime() : 0;
+        const tB = b.date_time ? new Date(b.date_time).getTime() : 0;
+        return tB - tA;
+      });
 
-    const latestMatches = individualFavMatches.slice(0, 4);
-    const rowSection = document.createElement('section');
-    rowSection.className = 'fav-club-row-section';
-    rowSection.setAttribute('aria-label', 'Partidos Favoritos Guardados');
+      const latestMatches = individualFavMatches.slice(0, 4);
+      const rowSection = document.createElement('section');
+      rowSection.className = 'fav-club-row-section';
+      rowSection.setAttribute('aria-label', 'Partidos Favoritos Guardados');
 
-    const leftCol = document.createElement('div');
-    leftCol.className = 'fav-club-row-left-col';
-    leftCol.innerHTML = `
-      <div class="fav-club-left-crest-box">
-        <span class="fav-club-left-crest-fallback" aria-hidden="true">⭐</span>
-      </div>
-      <h3 class="fav-club-left-name">Partidos Guardados</h3>
-      <span class="club-row-category-badge fav-club-left-category-badge">Favoritos</span>
-      <span class="fav-club-left-count-badge">${latestMatches.length} ${latestMatches.length === 1 ? 'partido' : 'partidos'}</span>
-    `;
-    rowSection.appendChild(leftCol);
+      const leftCol = document.createElement('div');
+      leftCol.className = 'fav-club-row-left-col';
+      leftCol.innerHTML = `
+        <div class="fav-club-left-crest-box">
+          <span class="fav-club-left-crest-fallback" aria-hidden="true">⭐</span>
+        </div>
+        <h3 class="fav-club-left-name">Partidos Guardados</h3>
+        <span class="club-row-category-badge fav-club-left-category-badge">Favoritos</span>
+        <span class="fav-club-left-count-badge">${latestMatches.length} ${latestMatches.length === 1 ? 'partido' : 'partidos'}</span>
+      `;
+      rowSection.appendChild(leftCol);
 
-    const rightContainer = document.createElement('div');
-    rightContainer.className = 'fav-club-row-right-container';
-    latestMatches.forEach((evt, idx) => {
-      const card = createMatchCard(evt, idx);
-      card.classList.add('fav-scaled-card');
-      rightContainer.appendChild(card);
-    });
+      const rightContainer = document.createElement('div');
+      rightContainer.className = 'fav-club-row-right-container';
+      latestMatches.forEach((evt, idx) => {
+        const card = createMatchCard(evt, idx);
+        card.classList.add('fav-scaled-card');
+        rightContainer.appendChild(card);
+      });
 
-    rowSection.appendChild(rightContainer);
-    container.appendChild(rowSection);
-    totalSections++;
+      rowSection.appendChild(rightContainer);
+      container.appendChild(rowSection);
+      totalSections++;
+    }
   }
 
   return totalSections;
+}
+
+function renderFavoriteClubsGroupedSection(container, cleanEvents = []) {
+  return renderPerClubHorizontalRows(container, cleanEvents, true);
 }
 
 function applyFilters() {
@@ -2563,7 +2628,7 @@ function applyFilters() {
     if (isFavoritesView) {
       sectionTitle.innerHTML = '⭐ En Directo y Emisiones de tus Favoritos';
     } else {
-      sectionTitle.textContent = 'Partidos en Directo';
+      sectionTitle.textContent = 'Emisiones y Canales de Clubes';
     }
   }
 
@@ -2637,7 +2702,7 @@ function applyFilters() {
       // Si aún no hay partidos de esos favoritos, mostrar los generales con título estándar
       baseEvents = portadaEvents;
       if (sectionTitle) {
-        sectionTitle.textContent = 'Partidos en Directo';
+        sectionTitle.textContent = 'Emisiones y Canales de Clubes';
       }
     }
   }
@@ -3604,15 +3669,23 @@ async function fetchEvents(force = false) {
   state.isFetchingEvents = true;
 
   const grid = document.getElementById('matches-grid');
+  const favContainer = document.getElementById('fav-per-club-rows');
   const countEl = document.getElementById('matches-header-count');
 
-  if (grid && (!state.allEvents || state.allEvents.length === 0)) {
-    grid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
-        <div class="pulsing-dot" style="margin: 0 auto 1rem; width: 16px; height: 16px;"></div>
-        <p style="color: var(--text-muted);">Cargando retransmisiones...</p>
-      </div>
-    `;
+  if ((!state.allEvents || state.allEvents.length === 0)) {
+    if (grid) {
+      grid.style.display = 'grid';
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+          <div class="pulsing-dot" style="margin: 0 auto 1rem; width: 16px; height: 16px;"></div>
+          <p style="color: var(--text-muted);">Cargando retransmisiones...</p>
+        </div>
+      `;
+    }
+    if (favContainer) {
+      favContainer.style.display = 'none';
+      favContainer.innerHTML = '';
+    }
     if (countEl) countEl.textContent = 'Cargando eventos...';
   }
 
@@ -3669,8 +3742,12 @@ window.fetchEvents = fetchEvents;
 function renderEvents(events) {
   const grid = document.getElementById('matches-grid');
   const favContainer = document.getElementById('fav-per-club-rows');
+  const liveSection = document.getElementById('live-broadcasts-section');
+  const liveGrid = document.getElementById('live-matches-grid');
+  const liveCountEl = document.getElementById('live-matches-count');
   if (!grid) return;
 
+  const targetClubMode = state.activeClubMode || state.activeClubFilter;
   const isGuest = !state.currentUser;
   const hasFavClubs = !isGuest && state.favoriteClubs && state.favoriteClubs.length > 0;
   const hasFavMatches = !isGuest && state.favorites && state.favorites.length > 0;
@@ -3679,26 +3756,34 @@ function renderEvents(events) {
 
   grid.classList.toggle('favorites-view-grid', !!isFavoritesView);
 
-  // Si estamos en la sección "En Directo y Emisiones de tus Favoritos" con clubes seguidos:
-  if (isFavoritesView && hasFavClubs) {
-    if (favContainer) {
-      favContainer.style.display = 'flex';
-      const cleanEvents = (state.allEvents || []).filter(e => !isTestResidualEvent(e) && isEventOfApprovedClub(e));
-      renderFavoriteClubsGroupedSection(favContainer, cleanEvents);
+  // 1. GESTIÓN DINÁMICA DE LA SECCIÓN DE PARTIDOS EN DIRECTO
+  // Si no hay retransmisiones en directo activas, ocultar completamente el bloque del DOM
+  const liveEvents = (events || []).filter(isEventLive);
+  if (liveSection) {
+    if (liveEvents.length > 0) {
+      liveSection.style.display = 'block';
+      if (liveCountEl) {
+        liveCountEl.textContent = `${liveEvents.length} ${liveEvents.length === 1 ? 'partido en directo' : 'partidos en directo'}`;
+      }
+      if (liveGrid) {
+        liveGrid.innerHTML = '';
+        liveEvents.forEach((evt, idx) => {
+          liveGrid.appendChild(createMatchCard(evt, idx));
+        });
+      }
+    } else {
+      liveSection.style.display = 'none';
+      if (liveGrid) liveGrid.innerHTML = '';
     }
-    grid.style.display = 'none';
-    grid.innerHTML = '';
-    return;
   }
 
-  // En catálogo general o si no hay clubes seguidos:
-  if (favContainer) {
-    favContainer.style.display = 'none';
-    favContainer.innerHTML = '';
-  }
-  grid.style.display = 'grid';
-
+  // 2. Si no hay eventos con los filtros seleccionados, mostrar estado vacío limpio
   if (!events || events.length === 0) {
+    if (favContainer) {
+      favContainer.style.display = 'none';
+      favContainer.innerHTML = '';
+    }
+    grid.style.display = 'grid';
     const isCcaaFiltered = state.selectedCcaa && state.selectedCcaa !== 'all';
     const emptyTitle = isCcaaFiltered 
       ? 'No hay emisiones disponibles en esta comunidad' 
@@ -3719,10 +3804,39 @@ function renderEvents(events) {
     return;
   }
 
+  // 3. MODO CANAL OFICIAL (Cuando el usuario explora el monográfico completo de un club)
+  if (targetClubMode) {
+    if (favContainer) {
+      favContainer.style.display = 'none';
+      favContainer.innerHTML = '';
+    }
+    grid.style.display = 'grid';
+    grid.innerHTML = '';
+    events.forEach((evt, idx) => {
+      grid.appendChild(createMatchCard(evt, idx));
+    });
+    return;
+  }
+
+  // 4. CATÁLOGO PRINCIPAL Y VISTA POR DEFECTO (Tanto para invitados como registrados):
+  // Agrupado estrictamente por club en filas horizontales de 4 vídeos
+  const cleanEvents = (events || []).filter(e => !isTestResidualEvent(e) && isEventOfApprovedClub(e));
+  if (favContainer) {
+    favContainer.style.display = 'flex';
+    const renderedSections = renderPerClubHorizontalRows(favContainer, cleanEvents, isFavoritesView);
+    if (renderedSections > 0) {
+      grid.style.display = 'none';
+      grid.innerHTML = '';
+      return;
+    }
+  }
+
+  // Fallback a rejilla estándar si ninguna agrupación produjo contenido
+  if (favContainer) favContainer.style.display = 'none';
+  grid.style.display = 'grid';
   grid.innerHTML = '';
   events.forEach((evt, idx) => {
-    const card = createMatchCard(evt, idx);
-    grid.appendChild(card);
+    grid.appendChild(createMatchCard(evt, idx));
   });
 }
 

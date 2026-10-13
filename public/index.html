@@ -473,19 +473,36 @@
         </button>
       </div>
 
-      <div class="matches-section-header">
-        <div class="live-header-indicator">
-          <span class="live-dot-pulse"></span>
-          <h2 id="section-title">Partidos en Directo</h2>
+      <!-- SECCIÓN PARTIDOS EN DIRECTO: Solo visible dinámicamente si hay retransmisiones en vivo activas -->
+      <div class="live-broadcasts-section" id="live-broadcasts-section" style="display: none;">
+        <div class="matches-section-header live-section-header" id="live-section-header">
+          <div class="live-header-indicator">
+            <span class="live-dot-pulse"></span>
+            <h2 id="live-section-title">Partidos en Directo</h2>
+          </div>
+          <span class="matches-count" id="live-matches-count">0 en directo</span>
         </div>
-        <span class="matches-count" id="matches-header-count">Cargando eventos...</span>
+        <div class="matches-grid live-matches-grid" id="live-matches-grid" aria-live="polite">
+          <!-- Rellenado dinámicamente ÚNICAMENTE cuando existan directos activos -->
+        </div>
       </div>
 
-      <!-- Filas dedicadas por club para la sección En Directo y Emisiones de tus Favoritos -->
-      <div class="fav-per-club-rows-container" id="fav-per-club-rows" style="display: none;"></div>
+      <!-- SECCIÓN CATÁLOGO / EMISIONES POR CLUB -->
+      <div class="catalog-section-container" id="catalog-section-container">
+        <div class="matches-section-header catalog-section-header" id="catalog-section-header">
+          <div class="live-header-indicator catalog-header-indicator">
+            <span class="catalog-header-icon" id="catalog-header-icon" style="font-size: 1.15rem; margin-right: 0.35rem;">🛡️</span>
+            <h2 id="section-title">Emisiones y Canales de Clubes</h2>
+          </div>
+          <span class="matches-count" id="matches-header-count">Cargando eventos...</span>
+        </div>
 
-      <div class="matches-grid" id="matches-grid" aria-live="polite">
-        <!-- Rellenado dinámicamente con createMatchCard -->
+        <!-- Filas dedicadas por club para el catálogo principal (4 vídeos por club en horizontal) -->
+        <div class="fav-per-club-rows-container" id="fav-per-club-rows"></div>
+
+        <div class="matches-grid" id="matches-grid" aria-live="polite" style="display: none;">
+          <!-- Rellenado dinámicamente con createMatchCard para vista vacía o monográfico -->
+        </div>
       </div>
     </section>
 

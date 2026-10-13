@@ -1284,6 +1284,17 @@ iframe#main-player-iframe {
   box-sizing: border-box;
 }
 
+.live-broadcasts-section {
+  width: 100%;
+  margin-bottom: 2.25rem;
+  box-sizing: border-box;
+}
+
+.catalog-section-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .matches-section-header {
   display: flex;
   align-items: center;
