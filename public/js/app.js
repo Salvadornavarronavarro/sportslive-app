@@ -4816,7 +4816,8 @@ async function initAuthSession() {
     const isHashAdmin = window.location.hash === '#admin' || window.location.hash === '#admin-login' || window.location.hash === '#admin-modal' || window.location.hash === '#admin-subscribers';
     const isQueryAdmin = new URLSearchParams(window.location.search).get('open_admin') === '1' || new URLSearchParams(window.location.search).get('open_admin') === 'subscribers' || new URLSearchParams(window.location.search).get('admin') === '1' || new URLSearchParams(window.location.search).get('portal') === 'admin';
 
-    if (state.currentUser && state.currentUser.role === 'admin') {
+    const isCurrentUserAdmin = Boolean(state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.is_admin || state.currentUser.email === 'dragontvsalva@gmail.com'));
+    if (isCurrentUserAdmin) {
       if (isQueryAdmin || isHashAdmin || isPathAdmin) {
         const targetTab = (new URLSearchParams(window.location.search).get('open_admin') === 'subscribers' || window.location.hash === '#admin-subscribers') ? 'subscribers' : 'matches';
         openAdminModal(targetTab);
@@ -4853,7 +4854,8 @@ function renderUserHeader() {
   }
 
   const u = getLiveSportsUser() || state.currentUser;
-  const role = u.role;
+  const isUserAdmin = Boolean(u && (u.role === 'admin' || u.is_admin || u.email === 'dragontvsalva@gmail.com'));
+  const role = isUserAdmin ? 'admin' : (u ? u.role : '');
 
   if (role === 'admin') {
     if (broadcastBtn) broadcastBtn.style.display = 'inline-flex';
@@ -4969,7 +4971,8 @@ function closeAuthModal() {
 window.addEventListener('hashchange', () => {
   if (window.location.hash === '#admin-login' || window.location.hash === '#admin') {
     const u = (typeof getLiveSportsUser === 'function') ? getLiveSportsUser() : (state.currentUser);
-    if (u && u.role === 'admin') {
+    const isUserAdmin = Boolean(u && (u.role === 'admin' || u.is_admin || u.email === 'dragontvsalva@gmail.com'));
+    if (isUserAdmin) {
       if (typeof openAdminModal === 'function') openAdminModal();
     } else {
       if (typeof openAdminLoginModal === 'function') openAdminLoginModal();
@@ -5879,7 +5882,8 @@ async function clubDeleteMatch(eventId) {
 
 async function openAdminModal(initialTab = null) {
   if (typeof closeMobileNav === 'function') closeMobileNav();
-  if (!state.currentUser || state.currentUser.role !== 'admin') {
+  const isUserAdmin = Boolean(state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.is_admin || state.currentUser.email === 'dragontvsalva@gmail.com'));
+  if (!isUserAdmin) {
     showToast('Acceso exclusivo para el Administrador.', 'error');
     return;
   }

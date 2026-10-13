@@ -456,7 +456,7 @@ def _run_init_schema(conn):
             conn.commit()
         if "is_admin" not in user_cols:
             cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;")
-            cursor.execute("UPDATE users SET is_admin = 1 WHERE role = 'admin' OR LOWER(email) = 'salvador@talentolive.es';")
+            cursor.execute("UPDATE users SET is_admin = 1 WHERE role = 'admin' OR LOWER(email) = 'dragontvsalva@gmail.com';")
             conn.commit()
 
         # Tabla de clubes y eventos favoritos de los aficionados
@@ -779,33 +779,19 @@ def verify_password(password: str, hashed: str, salt: str) -> bool:
     return secrets.compare_digest(calc_hash, hashed)
 
 def seed_default_users(cursor):
-    now_iso = datetime.datetime.now().isoformat()
     default_users = [
         {
             "id": "usr-admin-1",
             "username": "admin",
-            "email": "salvador@talentolive.es",
-            "password": "AdminLiveSports2026!",
+            "email": "dragontvsalva@gmail.com",
+            "password": "LiveSportsAdmin2026!",
             "role": "admin",
             "is_admin": 1,
             "club_name": None,
             "full_name": "Administrador General",
             "cif": "",
-            "location": "Madrid",
-            "is_verified": 1
-        },
-        {
-            "id": "usr-viewer-1",
-            "username": "aficionado",
-            "email": "aficionado@talentolive.es",
-            "password": "LiveSportsUser2026!",
-            "role": "viewer",
-            "is_admin": 0,
-            "club_name": None,
-            "full_name": "Aficionado al Deporte Base",
-            "cif": "",
             "location": "España",
-            "is_verified": 0
+            "is_verified": 1
         }
     ]
 
@@ -3668,9 +3654,9 @@ def reset_password_with_token(token: str, new_password: str) -> tuple[bool, str]
 
 def sync_and_reset_credentials() -> dict:
     """
-    Garantiza la configuración de credenciales de acceso para LiveSports:
-    - salvador@talentolive.es: is_admin = 1, role = 'admin', password = 'AdminLiveSports2026!'
-    - Resto de cuentas de prueba registradas: password = 'LiveSportsUser2026!'
+    Garantiza la configuración del Administrador Principal y limpia cuentas de prueba obsoletas:
+    - dragontvsalva@gmail.com: is_admin = 1, role = 'admin', password = 'LiveSportsAdmin2026!'
+    - Elimina cuentas mock legacy: salvador@talentolive.es, aficionado@talentolive.es, comunicacion@cfintercity.com
     Devuelve la lista de cuentas verificadas con sus roles.
     """
     conn = get_db()
@@ -3684,21 +3670,50 @@ def sync_and_reset_credentials() -> dict:
             cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;")
             conn.commit()
 
-        # 2. Resetear salvador@talentolive.es
-        admin_hash, admin_salt = hash_password("AdminLiveSports2026!")
-        cursor.execute("""
-        UPDATE users 
-        SET password_hash = ?, salt = ?, role = 'admin', is_admin = 1
-        WHERE LOWER(email) = 'salvador@talentolive.es' OR LOWER(username) = 'admin'
-        """, (admin_hash, admin_salt))
+        # 2. Registrar o actualizar la cuenta de Administrador Principal (dragontvsalva@gmail.com)
+        admin_email = "dragontvsalva@gmail.com"
+        admin_pass = "LiveSportsAdmin2026!"
+        admin_hash, admin_salt = hash_password(admin_pass)
 
-        # 3. Resetear el resto de cuentas de prueba en SQLite
-        user_hash, user_salt = hash_password("LiveSportsUser2026!")
         cursor.execute("""
-        UPDATE users 
-        SET password_hash = ?, salt = ?
-        WHERE LOWER(email) != 'salvador@talentolive.es' AND LOWER(username) != 'admin'
-        """, (user_hash, user_salt))
+        SELECT id FROM users 
+        WHERE LOWER(email) = ? OR LOWER(email) = 'salvador@talentolive.es' OR (role = 'admin' AND LOWER(username) = 'admin')
+        ORDER BY CASE WHEN LOWER(email) = ? THEN 1 ELSE 2 END
+        LIMIT 1
+        """, (admin_email.lower(), admin_email.lower()))
+        admin_row = cursor.fetchone()
+
+        if admin_row:
+            admin_id = admin_row["id"] if isinstance(admin_row, dict) else admin_row[0]
+            cursor.execute("""
+            UPDATE users 
+            SET email = ?, username = 'admin', password_hash = ?, salt = ?, role = 'admin', is_admin = 1,
+                full_name = 'Administrador General', is_verified = 1
+            WHERE id = ?
+            """, (admin_email, admin_hash, admin_salt, admin_id))
+        else:
+            admin_id = f"usr-admin-{secrets.token_hex(4)}"
+            now_iso = datetime.datetime.now().isoformat()
+            cursor.execute("""
+            INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, created_at, is_admin)
+            VALUES (?, 'admin', ?, ?, ?, 'admin', NULL, 'Administrador General', '', 'España', 1, ?, 1)
+            """, (admin_id, admin_email, admin_hash, admin_salt, now_iso))
+
+        # 3. Eliminar cuentas mock legacy (salvador@talentolive.es, aficionado@talentolive.es, comunicacion@cfintercity.com)
+        legacy_mock_emails = ['salvador@talentolive.es', 'aficionado@talentolive.es', 'comunicacion@cfintercity.com']
+        placeholders = ', '.join(['?'] * len(legacy_mock_emails))
+        cursor.execute(f"""
+        SELECT id FROM users 
+        WHERE LOWER(email) IN ({placeholders}) AND id != ?
+        """, legacy_mock_emails + [admin_id])
+        legacy_rows = cursor.fetchall()
+
+        for lr in legacy_rows:
+            lid = lr["id"] if isinstance(lr, dict) else lr[0]
+            cursor.execute("DELETE FROM sessions WHERE user_id = ?", (lid,))
+            cursor.execute("DELETE FROM favorites WHERE user_id = ?", (lid,))
+            cursor.execute("DELETE FROM password_resets WHERE user_id = ?", (lid,))
+            cursor.execute("DELETE FROM users WHERE id = ?", (lid,))
 
         conn.commit()
 
@@ -3718,9 +3733,8 @@ def sync_and_reset_credentials() -> dict:
 
         return {
             "success": True,
-            "admin_account": "salvador@talentolive.es",
-            "admin_password": "AdminLiveSports2026!",
-            "user_password": "LiveSportsUser2026!",
+            "admin_account": admin_email,
+            "admin_password": admin_pass,
             "accounts": verified
         }
     finally:

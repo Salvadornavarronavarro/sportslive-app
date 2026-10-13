@@ -137,7 +137,8 @@ function renderUserHeader(user) {
   const zone = document.getElementById('user-header-zone');
   if (!zone) return;
   if (user) {
-    if (user.role === 'admin') {
+    const isUserAdmin = Boolean(user && (user.role === 'admin' || user.is_admin || user.email === 'dragontvsalva@gmail.com'));
+    if (isUserAdmin) {
       zone.innerHTML = `
         <div class="capsule-dropdown-wrap" id="wrap-admin-user">
           <button type="button" class="capsule-btn account-capsule-btn role-admin" id="btn-header-admin-user" aria-haspopup="true" aria-expanded="false" title="👑 Administrador General de LiveSports">

@@ -42,6 +42,7 @@ from backend.rss_sync import (
     start_rss_background_poller
 )
 from backend.digest import (
+    ADMIN_EMAIL,
     send_subscribers_digest,
     start_weekly_digest_scheduler,
     send_password_reset_email
@@ -827,7 +828,7 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Solo administradores pueden enviar el resumen semanal de suscriptores."}).encode("utf-8"))
                     return
 
-                target_email = data.get("target_email") if isinstance(data, dict) else None
+                target_email = (data.get("target_email") if isinstance(data, dict) and data.get("target_email") else None) or ADMIN_EMAIL
                 try:
                     result = send_subscribers_digest(target_email=target_email, is_manual=True)
                     self._set_cors_and_json(200 if result.get("success") else 500)

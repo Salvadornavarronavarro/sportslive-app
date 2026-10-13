@@ -23,7 +23,7 @@ SMTP_HOST = os.environ.get("SMTP_HOST", "")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "salvador@talentolive.es")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", os.environ.get("DIGEST_RECIPIENT", "dragontvsalva@gmail.com"))
 SMTP_FROM = os.environ.get("SMTP_FROM", os.environ.get("SMTP_USER", "notificaciones@livesports.es"))
 SMTP_USE_SSL = os.environ.get("SMTP_USE_SSL", "false").lower() in ("true", "1", "yes")
 
@@ -252,7 +252,7 @@ def send_subscribers_digest(target_email: str = None, is_manual: bool = False) -
     Envía el resumen de suscriptores al correo del administrador.
     Si SMTP_HOST no está configurado, opera en modo de simulación segura sin provocar errores.
     """
-    recipient = (target_email or os.environ.get("ADMIN_EMAIL", ADMIN_EMAIL)).strip()
+    recipient = (target_email or os.environ.get("DIGEST_RECIPIENT") or os.environ.get("ADMIN_EMAIL") or ADMIN_EMAIL).strip()
     summary = get_subscribers_summary()
     total = summary.get("total", 0)
     new_count = summary.get("new_last_7_days", 0)
