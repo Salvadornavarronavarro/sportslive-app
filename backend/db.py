@@ -792,6 +792,19 @@ def seed_default_users(cursor):
             "cif": "",
             "location": "España",
             "is_verified": 1
+        },
+        {
+            "id": "usr-user-1",
+            "username": "salva_user",
+            "email": "dragontvsalva@hotmail.com",
+            "password": "LiveSports2026!",
+            "role": "aficionado",
+            "is_admin": 0,
+            "club_name": None,
+            "full_name": "Salvador Navarro",
+            "cif": "",
+            "location": "España",
+            "is_verified": 1
         }
     ]
 
@@ -3654,8 +3667,9 @@ def reset_password_with_token(token: str, new_password: str) -> tuple[bool, str]
 
 def sync_and_reset_credentials() -> dict:
     """
-    Garantiza la configuración del Administrador Principal y limpia cuentas de prueba obsoletas:
+    Garantiza la configuración del Administrador Principal y cuentas verificadas:
     - dragontvsalva@gmail.com: is_admin = 1, role = 'admin', password = 'LiveSportsAdmin2026!'
+    - dragontvsalva@hotmail.com: is_admin = 0, role = 'user', password = 'LiveSports2026!'
     - Elimina cuentas mock legacy: salvador@talentolive.es, aficionado@talentolive.es, comunicacion@cfintercity.com
     Devuelve la lista de cuentas verificadas con sus roles.
     """
@@ -3699,13 +3713,41 @@ def sync_and_reset_credentials() -> dict:
             VALUES (?, 'admin', ?, ?, ?, 'admin', NULL, 'Administrador General', '', 'España', 1, ?, 1)
             """, (admin_id, admin_email, admin_hash, admin_salt, now_iso))
 
-        # 3. Eliminar cuentas mock legacy (salvador@talentolive.es, aficionado@talentolive.es, comunicacion@cfintercity.com)
+        # 3. Registrar o actualizar la cuenta de usuario registrado (dragontvsalva@hotmail.com)
+        user_email = "dragontvsalva@hotmail.com"
+        user_pass = "LiveSports2026!"
+        user_hash, user_salt = hash_password(user_pass)
+
+        cursor.execute("""
+        SELECT id FROM users 
+        WHERE LOWER(email) = ?
+        LIMIT 1
+        """, (user_email.lower(),))
+        user_row = cursor.fetchone()
+
+        if user_row:
+            uid = user_row["id"] if isinstance(user_row, dict) else user_row[0]
+            cursor.execute("""
+            UPDATE users 
+            SET email = ?, username = 'salva_user', password_hash = ?, salt = ?, role = 'aficionado', is_admin = 0,
+                full_name = 'Salvador Navarro', is_verified = 1
+            WHERE id = ?
+            """, (user_email, user_hash, user_salt, uid))
+        else:
+            uid = f"usr-user-{secrets.token_hex(4)}"
+            now_iso = datetime.datetime.now().isoformat()
+            cursor.execute("""
+            INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, created_at, is_admin)
+            VALUES (?, 'salva_user', ?, ?, ?, 'aficionado', NULL, 'Salvador Navarro', '', 'España', 1, ?, 0)
+            """, (uid, user_email, user_hash, user_salt, now_iso))
+
+        # 4. Eliminar cuentas mock legacy (salvador@talentolive.es, aficionado@talentolive.es, comunicacion@cfintercity.com)
         legacy_mock_emails = ['salvador@talentolive.es', 'aficionado@talentolive.es', 'comunicacion@cfintercity.com']
         placeholders = ', '.join(['?'] * len(legacy_mock_emails))
         cursor.execute(f"""
         SELECT id FROM users 
-        WHERE LOWER(email) IN ({placeholders}) AND id != ?
-        """, legacy_mock_emails + [admin_id])
+        WHERE LOWER(email) IN ({placeholders}) AND id != ? AND id != ?
+        """, legacy_mock_emails + [admin_id, uid])
         legacy_rows = cursor.fetchall()
 
         for lr in legacy_rows:
@@ -3717,7 +3759,7 @@ def sync_and_reset_credentials() -> dict:
 
         conn.commit()
 
-        # 4. Obtener listado de cuentas verificadas
+        # 5. Obtener listado de cuentas verificadas
         cursor.execute("""
         SELECT id, username, email, role, is_admin, full_name, is_verified, created_at 
         FROM users 
@@ -3735,6 +3777,8 @@ def sync_and_reset_credentials() -> dict:
             "success": True,
             "admin_account": admin_email,
             "admin_password": admin_pass,
+            "user_account": user_email,
+            "user_password": user_pass,
             "accounts": verified
         }
     finally:

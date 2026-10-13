@@ -413,14 +413,15 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
 
                 resp_payload = {
                     "success": True,
-                    "message": f"Instrucciones enviadas. Revisa la bandeja de entrada de {token_data['email']}.",
+                    "message": f"Instrucciones enviadas desde LiveSports (alicanteparadisestudios@gmail.com). Revisa la bandeja de entrada de {token_data['email']}.",
+                    "sender": mail_result.get("sender", "LiveSports <alicanteparadisestudios@gmail.com>"),
                     "simulated": mail_result.get("simulated", False),
                     "recipient": token_data["email"]
                 }
                 if mail_result.get("simulated"):
                     resp_payload["token"] = token_data["token"]
                     resp_payload["reset_url"] = reset_url
-                    resp_payload["notice"] = "Modo simulación: Servidor SMTP no configurado localmente. Haz clic en el enlace inferior para restablecer tu contraseña inmediatamente."
+                    resp_payload["notice"] = "Modo simulación: Servidor SMTP sin clave remota. Haz clic en el enlace inferior para restablecer tu contraseña inmediatamente."
 
                 self._set_cors_and_json(200)
                 self.wfile.write(json.dumps(resp_payload, ensure_ascii=False).encode("utf-8"))
