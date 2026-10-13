@@ -52,11 +52,21 @@ def open_browser(port):
             pass
 
 if __name__ == "__main__":
-    port = 3000
+    port = None
     if len(sys.argv) > 1:
         try:
             port = int(sys.argv[1])
         except ValueError:
             pass
+    if port is None:
+        try:
+            port = int(os.environ.get("PORT", 5000))
+        except (ValueError, TypeError):
+            port = 5000
 
-    run_server(port, on_ready=open_browser)
+    # En entornos cloud como Render (donde se define PORT o RENDER), no abrir navegador
+    on_ready_cb = None
+    if "RENDER" not in os.environ and "PORT" not in os.environ:
+        on_ready_cb = open_browser
+
+    run_server(port=port, host="0.0.0.0", on_ready=on_ready_cb)

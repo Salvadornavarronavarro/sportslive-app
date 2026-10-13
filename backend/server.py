@@ -1148,35 +1148,84 @@ SportsLiveHandler = LiveSportsHandler  # Alias de compatibilidad
 TalentoLiveHandler = LiveSportsHandler  # Alias de compatibilidad
 GradaDirectoHandler = LiveSportsHandler  # Alias de compatibilidad
 
-def run_server(port=3000, on_ready=None):
-    init_db()
+def run_server(port=None, host="0.0.0.0", on_ready=None):
+    """
+    Inicia el servidor HTTP de LiveSports.
+    Escucha por defecto en host="0.0.0.0" y port=int(os.environ.get("PORT", 5000))
+    para compatibilidad plena con despliegues en Render y PaaS.
+    """
+    if port is None:
+        try:
+            port = int(os.environ.get("PORT", 5000))
+        except (ValueError, TypeError):
+            port = 5000
+
+    try:
+        init_db()
+    except Exception as _e:
+        print(f"⚠️ Error inicializando base de datos: {_e}")
+
+    # 1. Poller RSS en segundo plano (daemon thread no bloqueante)
     try:
         start_rss_background_poller(interval_minutes=45)
     except Exception as _e:
         print(f"⚠️ No se pudo iniciar el poller RSS en segundo plano: {_e}")
+
+    # 2. Scheduler de resumen semanal en segundo plano (daemon thread no bloqueante)
     try:
         start_weekly_digest_scheduler()
     except Exception as _e:
         print(f"⚠️ No se pudo iniciar el scheduler de resumen semanal: {_e}")
-    for p in [port, 3001, 8080, 8000]:
+
+    ThreadingHTTPServer.allow_reuse_address = True
+
+    ports_to_try = [port]
+    for p_cand in [5000, 10000, 3000, 8080, 8000, 3001, 5001]:
+        if p_cand not in ports_to_try:
+            ports_to_try.append(p_cand)
+
+    httpd = None
+    bound_port = None
+    for p in ports_to_try:
         try:
-            server_address = ("", p)
+            server_address = (host, p)
             httpd = ThreadingHTTPServer(server_address, LiveSportsHandler)
-            print(f"📡 LiveSports servidor activo en http://localhost:{p}")
-            if on_ready:
-                import threading
-                threading.Thread(target=on_ready, args=(p,), daemon=True).start()
-            httpd.serve_forever()
+            bound_port = p
             break
-        except OSError:
-            print(f"Puerto {p} en uso, probando siguiente...")
+        except OSError as err:
+            print(f"Aviso: Puerto {p} no disponible ({err}). Probando siguiente...")
+
+    if not httpd:
+        server_address = (host, port)
+        httpd = ThreadingHTTPServer(server_address, LiveSportsHandler)
+        bound_port = port
+
+    print(f"📡 LiveSports servidor activo escuchando en http://{host}:{bound_port}")
+    if on_ready:
+        import threading
+        threading.Thread(target=on_ready, args=(bound_port,), daemon=True).start()
+
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n🛑 Deteniendo servidor LiveSports...")
+    finally:
+        try:
+            httpd.server_close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
-    port = 3000
+    port = None
     if len(sys.argv) > 1:
         try:
             port = int(sys.argv[1])
         except ValueError:
             pass
-    run_server(port)
+    if port is None:
+        try:
+            port = int(os.environ.get("PORT", 5000))
+        except (ValueError, TypeError):
+            port = 5000
+    run_server(port=port, host="0.0.0.0")
 

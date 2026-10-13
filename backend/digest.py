@@ -356,11 +356,20 @@ def get_digest_status() -> dict:
     return info
 
 
+_scheduler_started = False
+
 def start_weekly_digest_scheduler():
     """
     Inicia el programador en segundo plano (daemon thread)
     que comprueba de forma continua y envía el informe una vez por semana (cada 7 días).
+    Garantiza ejecución estrictamente no bloqueante como daemon thread.
     """
+    global _scheduler_started
+    with _digest_lock:
+        if _scheduler_started:
+            return None
+        _scheduler_started = True
+
     def _scheduler_worker():
         # Ciclo semanal: 7 días = 7 * 24 * 3600 segundos
         WEEK_SECONDS = 7 * 24 * 3600
@@ -368,10 +377,13 @@ def start_weekly_digest_scheduler():
         print(f"📅 [LiveSports Digest Scheduler] Iniciado en segundo plano (frecuencia: semanal a {ADMIN_EMAIL}).")
 
         # Verificar cuándo se ejecutó por última vez
-        last_ts = _load_last_run_timestamp()
-        if last_ts is None:
-            # Primera inicialización: registramos el arranque para programar el primer ciclo a los 7 días
-            _save_last_run_timestamp(time.time(), ADMIN_EMAIL, 0, 0)
+        try:
+            last_ts = _load_last_run_timestamp()
+            if last_ts is None:
+                _save_last_run_timestamp(time.time(), ADMIN_EMAIL, 0, 0)
+                last_ts = time.time()
+        except Exception as _e:
+            print(f"⚠️ Error cargando estado inicial de digest: {_e}")
             last_ts = time.time()
 
         while True:
