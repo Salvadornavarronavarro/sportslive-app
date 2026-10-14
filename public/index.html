@@ -142,71 +142,148 @@
           </div>
         </div>
 
-        <!-- 3. [ DEPORTES ⌄ ] -->
-        <div class="capsule-dropdown-wrap" id="wrap-dropdown-sports">
-          <button type="button" class="capsule-btn" id="btn-capsule-sports" aria-expanded="false" aria-haspopup="true">
-            <span class="capsule-btn-text">DEPORTES</span>
+        <!-- 3. [ EXPLORAR ⌄ ] (Combinado: Por Deporte / Por Región) -->
+        <div class="capsule-dropdown-wrap" id="wrap-dropdown-explore">
+          <button type="button" class="capsule-btn" id="btn-capsule-explore" aria-expanded="false" aria-haspopup="true" title="Explorar partidos por deporte y región">
+            <span class="capsule-btn-text" id="label-capsule-explore">Explorar</span>
             <span class="capsule-btn-arrow">⌄</span>
           </button>
-          <div class="floating-dropdown-menu sports-floating-menu" id="menu-sports" role="menu">
-            <button type="button" class="dropdown-item active" data-sport="all" onclick="selectSportFilter('all')">
-              <span class="item-icon">🏅</span> <span>Todos los Deportes</span>
-            </button>
-            <button type="button" class="dropdown-item" data-sport="futbol" onclick="selectSportFilter('futbol')">
-              <span class="item-icon">⚽</span> <span>Fútbol</span>
-            </button>
-            <!-- Boxeo y deportes de contacto (Jerárquico) -->
-            <div class="dropdown-item-submenu-wrap" id="wrap-sport-contacto">
-              <button type="button" class="dropdown-item dropdown-item-parent" data-sport="contacto" onclick="selectSportFilter('contacto', 'all', event)" onmouseenter="openSportSubmenu('contacto')">
-                <span class="item-icon">🥊</span> <span>Boxeo y deportes de contacto</span>
-                <span class="submenu-arrow">›</span>
+          
+          <!-- Elementos de compatibilidad no visibles para selectores legacy -->
+          <div id="wrap-dropdown-sports" style="display:none;" aria-hidden="true">
+            <button id="btn-capsule-sports" type="button"><span class="capsule-btn-text"></span><span class="capsule-btn-arrow"></span></button>
+          </div>
+          <div id="wrap-dropdown-geo" style="display:none;" aria-hidden="true">
+            <button id="btn-capsule-geo" type="button"><span id="label-capsule-geo"></span><span class="capsule-btn-arrow"></span></button>
+          </div>
+
+          <div class="floating-dropdown-menu explore-floating-menu" id="menu-explore" role="menu">
+            <!-- Pestañas superiores del menú combinado -->
+            <div class="explore-tabs-header" role="tablist">
+              <button type="button" class="explore-tab-btn active" id="tab-btn-sports" role="tab" aria-selected="true" onclick="switchExploreTab('sports', event)">
+                <span class="tab-icon">🏅</span> <span>Por Deporte</span>
               </button>
-              <div class="dropdown-submenu" id="submenu-contacto" role="menu">
-                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="all" onclick="selectSportFilter('contacto', 'all', event)">
-                  <span class="item-icon">🥊</span> <span>Todos (Boxeo y Contacto)</span>
+              <button type="button" class="explore-tab-btn" id="tab-btn-geo" role="tab" aria-selected="false" onclick="switchExploreTab('geo', event)">
+                <span class="tab-icon">📍</span> <span>Por Región</span>
+              </button>
+            </div>
+
+            <!-- Panel 1: Listado completo de deportes -->
+            <div class="explore-tab-panel active" id="tab-panel-sports" role="tabpanel" aria-labelledby="tab-btn-sports">
+              <div class="explore-tab-items-wrap" id="menu-sports">
+                <button type="button" class="dropdown-item active" data-sport="all" onclick="selectSportFilter('all')">
+                  <span class="item-icon">🏅</span> <span>Todos los Deportes</span>
                 </button>
-                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="boxeo" onclick="selectSportFilter('contacto', 'boxeo', event)">
-                  <span class="item-icon">🥊</span> <span>Boxeo</span>
+                <button type="button" class="dropdown-item" data-sport="futbol" onclick="selectSportFilter('futbol')">
+                  <span class="item-icon">⚽</span> <span>Fútbol</span>
                 </button>
-                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="mma" onclick="selectSportFilter('contacto', 'mma', event)">
-                  <span class="item-icon">🥋</span> <span>MMA</span>
+                <!-- Boxeo y deportes de contacto (Jerárquico) -->
+                <div class="dropdown-item-submenu-wrap" id="wrap-sport-contacto">
+                  <button type="button" class="dropdown-item dropdown-item-parent" data-sport="contacto" onclick="selectSportFilter('contacto', 'all', event)" onmouseenter="openSportSubmenu('contacto')">
+                    <span class="item-icon">🥊</span> <span>Boxeo y deportes de contacto</span>
+                    <span class="submenu-arrow">›</span>
+                  </button>
+                  <div class="dropdown-submenu" id="submenu-contacto" role="menu">
+                    <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="all" onclick="selectSportFilter('contacto', 'all', event)">
+                      <span class="item-icon">🥊</span> <span>Todos (Boxeo y Contacto)</span>
+                    </button>
+                    <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="boxeo" onclick="selectSportFilter('contacto', 'boxeo', event)">
+                      <span class="item-icon">🥊</span> <span>Boxeo</span>
+                    </button>
+                    <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="mma" onclick="selectSportFilter('contacto', 'mma', event)">
+                      <span class="item-icon">🥋</span> <span>MMA</span>
+                    </button>
+                    <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="kickboxing" onclick="selectSportFilter('contacto', 'kickboxing', event)">
+                      <span class="item-icon">🦵</span> <span>Kickboxing</span>
+                    </button>
+                    <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="muay_thai" onclick="selectSportFilter('contacto', 'muay_thai', event)">
+                      <span class="item-icon">🥊</span> <span>Muay Thai</span>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="dropdown-item" data-sport="baloncesto" onclick="selectSportFilter('baloncesto')">
+                  <span class="item-icon">🏀</span> <span>Baloncesto</span>
                 </button>
-                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="kickboxing" onclick="selectSportFilter('contacto', 'kickboxing', event)">
-                  <span class="item-icon">🦵</span> <span>Kickboxing</span>
+                <button type="button" class="dropdown-item" data-sport="voleibol" onclick="selectSportFilter('voleibol')">
+                  <span class="item-icon">🏐</span> <span>Voleibol</span>
                 </button>
-                <button type="button" class="dropdown-item sub-item" data-sport="contacto" data-discipline="muay_thai" onclick="selectSportFilter('contacto', 'muay_thai', event)">
-                  <span class="item-icon">🥊</span> <span>Muay Thai</span>
+                <button type="button" class="dropdown-item" data-sport="balonmano" onclick="selectSportFilter('balonmano')">
+                  <span class="item-icon">🤾</span> <span>Balonmano</span>
+                </button>
+                <button type="button" class="dropdown-item" data-sport="otros" onclick="selectSportFilter('otros')">
+                  <span class="item-icon">🎾</span> <span>Otros</span>
                 </button>
               </div>
             </div>
-            <button type="button" class="dropdown-item" data-sport="baloncesto" onclick="selectSportFilter('baloncesto')">
-              <span class="item-icon">🏀</span> <span>Baloncesto</span>
-            </button>
-            <button type="button" class="dropdown-item" data-sport="voleibol" onclick="selectSportFilter('voleibol')">
-              <span class="item-icon">🏐</span> <span>Voleibol</span>
-            </button>
-            <button type="button" class="dropdown-item" data-sport="balonmano" onclick="selectSportFilter('balonmano')">
-              <span class="item-icon">🤾</span> <span>Balonmano</span>
-            </button>
-            <button type="button" class="dropdown-item" data-sport="otros" onclick="selectSportFilter('otros')">
-              <span class="item-icon">🎾</span> <span>Otros</span>
-            </button>
+
+            <!-- Panel 2: Listado de regiones / CCAA -->
+            <div class="explore-tab-panel" id="tab-panel-geo" role="tabpanel" aria-labelledby="tab-btn-geo" style="display: none;">
+              <div class="explore-tab-items-wrap" id="menu-geo">
+                <button type="button" class="dropdown-item active" data-ccaa="all" onclick="selectGeoCcaa('all')">
+                  <span class="item-icon">🇪🇸</span> <span>Toda España</span>
+                </button>
+                <div class="dropdown-divider"></div>
+                <div class="geo-menu-scrollable" id="geo-menu-list">
+                  <!-- Comunidades Autónomas inyectadas por JS -->
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 4. [ 🇪🇸 Toda España ⌄ ] -->
-        <div class="capsule-dropdown-wrap" id="wrap-dropdown-geo">
-          <button type="button" class="capsule-btn" id="btn-capsule-geo" aria-expanded="false" aria-haspopup="true">
-            <span class="capsule-btn-text" id="label-capsule-geo">🇪🇸 Toda España</span>
+        <!-- 4. [ COMUNIDAD ⌄ ] (Telegram & TikTok) -->
+        <div class="capsule-dropdown-wrap" id="wrap-dropdown-community">
+          <button type="button" class="capsule-btn btn-community-capsule" id="btn-capsule-community" aria-expanded="false" aria-haspopup="true" title="Comunidad oficial de LiveSports en redes">
+            <span class="community-nav-icons">
+              <!-- Telegram Logo SVG -->
+              <svg class="social-icon-telegram" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="12" cy="12" r="12" fill="#24A1DE"/>
+                <path d="M17.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.536-.194 1.006.131.832.946z" fill="#ffffff"/>
+              </svg>
+              <!-- TikTok Logo SVG -->
+              <svg class="social-icon-tiktok" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect width="24" height="24" rx="5" fill="#010101"/>
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.63c.34 0 .66.06.96.17V8.92a6.34 6.34 0 0 0-.96-.07A6.33 6.33 0 0 0 3.12 15.2 6.33 6.33 0 0 0 9.45 21.5a6.33 6.33 0 0 0 6.33-6.33V8.89a8.18 8.18 0 0 0 4.79 1.54V6.99c-.33 0-.66-.1-.98-.3z" fill="#ffffff"/>
+              </svg>
+            </span>
+            <span class="capsule-btn-text">Comunidad</span>
             <span class="capsule-btn-arrow">⌄</span>
           </button>
-          <div class="floating-dropdown-menu geo-floating-menu" id="menu-geo" role="menu">
-            <button type="button" class="dropdown-item active" data-ccaa="all" onclick="selectGeoCcaa('all')">
-              <span class="item-icon">🇪🇸</span> <span>Toda España</span>
-            </button>
+          <div class="floating-dropdown-menu community-floating-menu" id="menu-community" role="menu">
+            <!-- Fila 1: Telegram -->
+            <div class="community-menu-row">
+              <div class="community-row-icon community-icon-telegram">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <circle cx="12" cy="12" r="12" fill="#24A1DE"/>
+                  <path d="M17.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.536-.194 1.006.131.832.946z" fill="#ffffff"/>
+                </svg>
+              </div>
+              <div class="community-row-info">
+                <div class="community-row-title">Canal de Telegram</div>
+                <div class="community-row-subtitle">Alertas y directos al instante</div>
+              </div>
+              <a href="https://t.me/livesports_es" target="_blank" rel="noopener noreferrer" class="community-row-btn community-btn-telegram" title="Unirme al canal de Telegram de LiveSports">
+                Unirme
+              </a>
+            </div>
+
             <div class="dropdown-divider"></div>
-            <div class="geo-menu-scrollable" id="geo-menu-list">
-              <!-- Comunidades Autónomas inyectadas por JS -->
+
+            <!-- Fila 2: TikTok -->
+            <div class="community-menu-row">
+              <div class="community-row-icon community-icon-tiktok">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <rect width="24" height="24" rx="5" fill="#010101"/>
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.63c.34 0 .66.06.96.17V8.92a6.34 6.34 0 0 0-.96-.07A6.33 6.33 0 0 0 3.12 15.2 6.33 6.33 0 0 0 9.45 21.5a6.33 6.33 0 0 0 6.33-6.33V8.89a8.18 8.18 0 0 0 4.79 1.54V6.99c-.33 0-.66-.1-.98-.3z" fill="#ffffff"/>
+                </svg>
+              </div>
+              <div class="community-row-info">
+                <div class="community-row-title">TikTok Oficial</div>
+                <div class="community-row-subtitle">Highlights, reels y mejores jugadas</div>
+              </div>
+              <a href="https://www.tiktok.com/@livesports_es" target="_blank" rel="noopener noreferrer" class="community-row-btn community-btn-tiktok" title="Seguir a LiveSports en TikTok">
+                Seguir
+              </a>
             </div>
           </div>
         </div>

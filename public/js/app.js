@@ -747,6 +747,54 @@ function closeAllCapsuleDropdowns() {
   });
 }
 
+function switchExploreTab(tabName, event) {
+  if (event) {
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
+  const sportsTabBtn = document.getElementById('tab-btn-sports');
+  const geoTabBtn = document.getElementById('tab-btn-geo');
+  const sportsPanel = document.getElementById('tab-panel-sports');
+  const geoPanel = document.getElementById('tab-panel-geo');
+
+  if (tabName === 'sports') {
+    if (sportsTabBtn) {
+      sportsTabBtn.classList.add('active');
+      sportsTabBtn.setAttribute('aria-selected', 'true');
+    }
+    if (geoTabBtn) {
+      geoTabBtn.classList.remove('active');
+      geoTabBtn.setAttribute('aria-selected', 'false');
+    }
+    if (sportsPanel) {
+      sportsPanel.classList.add('active');
+      sportsPanel.style.display = 'block';
+    }
+    if (geoPanel) {
+      geoPanel.classList.remove('active');
+      geoPanel.style.display = 'none';
+    }
+  } else if (tabName === 'geo') {
+    if (geoTabBtn) {
+      geoTabBtn.classList.add('active');
+      geoTabBtn.setAttribute('aria-selected', 'true');
+    }
+    if (sportsTabBtn) {
+      sportsTabBtn.classList.remove('active');
+      sportsTabBtn.setAttribute('aria-selected', 'false');
+    }
+    if (geoPanel) {
+      geoPanel.classList.add('active');
+      geoPanel.style.display = 'block';
+    }
+    if (sportsPanel) {
+      sportsPanel.classList.remove('active');
+      sportsPanel.style.display = 'none';
+    }
+  }
+}
+window.switchExploreTab = switchExploreTab;
+
 function updateSportsSelectorVisibility() {
   const menuSports = document.getElementById('menu-sports');
   if (!menuSports) return;
@@ -2012,7 +2060,44 @@ async function syncUserFavorites() {
 
 
 function updateFilterButtonsVisual() {
-  // 1. Botón DEPORTES
+  // 1. Botón EXPLORAR (Combinado: Por Deporte / Por Región)
+  const exploreBtn = document.getElementById('btn-capsule-explore');
+  const exploreLabel = document.getElementById('label-capsule-explore');
+  const exploreArrow = document.querySelector('#btn-capsule-explore .capsule-btn-arrow');
+  if (exploreArrow) exploreArrow.textContent = '⌄';
+
+  if (exploreLabel) {
+    const hasSport = state.selectedSport && state.selectedSport !== 'all';
+    const hasGeo = state.selectedCcaa && state.selectedCcaa !== 'all';
+
+    if (!hasSport && !hasGeo) {
+      exploreLabel.textContent = 'Explorar';
+      if (exploreBtn) exploreBtn.classList.remove('active');
+    } else if (hasSport && !hasGeo) {
+      let sportLabel = getSportDisplayName(state.selectedSport);
+      if (state.selectedSport === 'contacto') {
+        const disc = (state.selectedDiscipline || 'all').toLowerCase();
+        if (disc && disc !== 'all') {
+          const discLabels = { boxeo: 'Boxeo', mma: 'MMA', kickboxing: 'Kickboxing', muay_thai: 'Muay Thai', otras: 'Otras disciplinas' };
+          sportLabel = discLabels[disc] || disc.toUpperCase();
+        } else {
+          sportLabel = 'Boxeo y contacto';
+        }
+      }
+      exploreLabel.textContent = sportLabel;
+      if (exploreBtn) exploreBtn.classList.add('active');
+    } else if (!hasSport && hasGeo) {
+      exploreLabel.textContent = getCcaaShortName(state.selectedCcaa);
+      if (exploreBtn) exploreBtn.classList.add('active');
+    } else {
+      let sportLabel = getSportDisplayName(state.selectedSport);
+      if (state.selectedSport === 'contacto') sportLabel = 'Contacto';
+      exploreLabel.textContent = `${sportLabel} • ${getCcaaShortName(state.selectedCcaa)}`;
+      if (exploreBtn) exploreBtn.classList.add('active');
+    }
+  }
+
+  // Compatibilidad: Botón DEPORTES
   const sportsBtn = document.getElementById('btn-capsule-sports');
   const sportsBtnText = document.querySelector('#btn-capsule-sports .capsule-btn-text');
   const sportsArrow = document.querySelector('#btn-capsule-sports .capsule-btn-arrow');
@@ -2789,6 +2874,7 @@ function selectSportFilter(sportId, discipline = 'all', event = null) {
   state.selectedCategory = (discipline && discipline !== 'all') ? discipline : 'all';
   closeAllCapsuleDropdowns();
   if (typeof closeMobileNav === 'function') closeMobileNav();
+  if (typeof switchExploreTab === 'function') switchExploreTab('sports');
   updateFilterButtonsVisual();
   applyFilters();
 }
@@ -2820,6 +2906,7 @@ function selectGeoCcaa(ccaaId) {
   state.selectedProvince = 'all';
   closeAllCapsuleDropdowns();
   if (typeof closeMobileNav === 'function') closeMobileNav();
+  if (typeof switchExploreTab === 'function') switchExploreTab('geo');
   updateFilterButtonsVisual();
   if (typeof filterMatches === 'function') {
     filterMatches();
@@ -2844,6 +2931,7 @@ function resetAllFilters() {
   state.directosFilter = 'all';
   state.selectedCategory = 'all';
   state.searchQuery = '';
+  if (typeof switchExploreTab === 'function') switchExploreTab('sports');
 
   const searchInput = document.getElementById('search-input');
   if (searchInput) searchInput.value = '';
