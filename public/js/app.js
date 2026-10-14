@@ -178,6 +178,7 @@ function saveUserFavorites(type = 'both') {
         fetch('/api/user/favorites', {
           method: 'POST',
           headers: getAuthHeaders(true),
+          credentials: 'include',
           body: JSON.stringify({ favorite_events: state.favorites || [] })
         }).catch(() => {});
       } catch (_) {}
@@ -198,6 +199,7 @@ function saveUserFavorites(type = 'both') {
         fetch('/api/user/favorites', {
           method: 'POST',
           headers: getAuthHeaders(true),
+          credentials: 'include',
           body: JSON.stringify({ favorite_clubs: state.favoriteClubs || [] })
         }).catch(() => {});
       } catch (_) {}
@@ -415,12 +417,56 @@ function disableAutoplayInUrl(rawUrl) {
 function getAuthHeaders(includeContentType = true) {
   const headers = {};
   if (includeContentType) headers['Content-Type'] = 'application/json';
-  if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+  const token = state.token ||
+    localStorage.getItem('livesports_auth_token') ||
+    localStorage.getItem('sportslive_auth_token') ||
+    localStorage.getItem('livesports_token') ||
+    localStorage.getItem('sportslive_token') ||
+    localStorage.getItem('talentolive_auth_token') ||
+    localStorage.getItem('grada_auth_token') || '';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
+}
+
+/**
+ * Restaura de forma síncrona e inmediata las credenciales y el estado autenticado
+ * desde localStorage (retención de sesión de 30 días) al inicializar el DOM.
+ * Previene parpadeos de interfaz ("Iniciar Sesión") en iPadOS, iOS y navegadores de escritorio.
+ */
+function restorePersistentAuth() {
+  try {
+    const rawUser = localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user');
+    const token = localStorage.getItem('livesports_auth_token') ||
+      localStorage.getItem('sportslive_auth_token') ||
+      localStorage.getItem('livesports_token') ||
+      localStorage.getItem('sportslive_token') ||
+      localStorage.getItem('talentolive_auth_token') ||
+      localStorage.getItem('grada_auth_token') || '';
+
+    if (rawUser && token) {
+      const u = JSON.parse(rawUser);
+      if (u && (u.id || u.username)) {
+        state.currentUser = u;
+        state.token = token;
+        loadUserFavorites();
+        renderUserHeader();
+        updateGuestFloatingBar();
+        updateChatVisibility();
+        updateFilterButtonsVisual();
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Advertencia restaurando sesión persistente:', err);
+  }
+  return false;
 }
 
 // Inicialización al cargar el DOM
 document.addEventListener('DOMContentLoaded', () => {
+  // 1. Restaurar sesión persistente de 30 días síncronamente antes de la renderización
+  restorePersistentAuth();
+
   initCapsuleDropdowns();
   initFavoritesHeaderListeners();
   initGeoSelector();
@@ -2075,7 +2121,8 @@ async function syncUserFavorites() {
   if (!state.token || !state.currentUser) return;
   try {
     const res = await fetch('/api/user/favorites', {
-      headers: getAuthHeaders(false)
+      headers: getAuthHeaders(false),
+      credentials: 'include'
     });
     if (res.ok) {
       const data = await res.json();
@@ -5072,28 +5119,31 @@ async function exportAppToShare() {
    ========================================================== */
 
 async function initAuthSession() {
-  if (!state.token) {
-    state.currentUser = null;
-    loadUserFavorites();
-    renderUserHeader();
-    updateGuestFloatingBar();
-    updateChatVisibility();
-    renderDiscoveryBanner();
-    return;
-  }
+  // Consultar /api/auth/me con credentials: 'include'.
+  // Las cookies persistentes (30 días, SameSite=Lax) se envían automáticamente,
+  // permitiendo que incluso si localStorage se limpió o tras suspender pestañas en iPad/Safari,
+  // la sesión se restablezca sin solicitar de nuevo usuario ni contraseña.
   try {
     const res = await fetch('/api/auth/me', {
-      headers: getAuthHeaders(false)
+      headers: getAuthHeaders(false),
+      credentials: 'include'
     });
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
         state.currentUser = data.user;
+        if (data.token) {
+          state.token = data.token;
+          localStorage.setItem('talentolive_auth_token', data.token);
+          localStorage.setItem('livesports_auth_token', data.token);
+          localStorage.setItem('sportslive_auth_token', data.token);
+        }
         localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
         localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
         loadUserFavorites();
         await syncUserFavorites();
-      } else {
+      } else if (data.authenticated === false) {
+        // Solo destruir credenciales locales si el backend confirma explícitamente que la sesión expiró
         state.currentUser = null;
         state.token = '';
         localStorage.removeItem('talentolive_auth_token');
@@ -5106,7 +5156,9 @@ async function initAuthSession() {
       }
     }
   } catch (err) {
-    console.warn('Error verificando sesión:', err);
+    // Si hay un error puntual de red o reconexión tras suspensión de pestañas en iPad/iOS,
+    // preservamos la sesión previamente restaurada desde localStorage
+    console.warn('Verificación remota de sesión diferida por red o suspensión de pestañas:', err);
     loadUserFavorites();
   } finally {
     renderUserHeader();
@@ -5459,6 +5511,7 @@ async function handleAdminLoginSubmit(e) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ identity, password, admin_key: adminKey })
     });
 
@@ -5522,6 +5575,7 @@ async function doLogin(identity, password) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ identity, password })
     });
 
@@ -5608,6 +5662,7 @@ async function handleRegisterSubmit(e) {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(payload)
     });
 
@@ -5877,10 +5932,13 @@ async function logout() {
   state.token = '';
   state.currentUser = null;
   localStorage.removeItem('talentolive_auth_token');
+  localStorage.removeItem('talentolive_token');
   localStorage.removeItem('grada_auth_token');
   localStorage.removeItem('livesports_auth_token');
+  localStorage.removeItem('livesports_token');
   localStorage.removeItem('livesports_current_user');
   localStorage.removeItem('sportslive_auth_token');
+  localStorage.removeItem('sportslive_token');
   localStorage.removeItem('sportslive_current_user');
 
   // 2. Limpiar rigurosamente el estado reactivo en memoria de los favoritos del usuario saliente
@@ -5897,11 +5955,11 @@ async function logout() {
   state.searchQuery = '';
   state.featuredEventId = null;
 
-  // Notificar al backend en segundo plano
+  // Notificar al backend en segundo plano y limpiar cookie de sesión en el navegador
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (currentTok) headers['Authorization'] = `Bearer ${currentTok}`;
-    fetch('/api/auth/logout', { method: 'POST', headers }).catch(() => {});
+    fetch('/api/auth/logout', { method: 'POST', headers, credentials: 'include' }).catch(() => {});
   } catch (err) {
     // Ignorar fallo de red en logout
   }

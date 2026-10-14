@@ -59,25 +59,65 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=PUBLIC_DIR, **kwargs)
 
-    def _set_cors_and_json(self, status=200):
+    def _set_cors_and_json(self, status=200, session_token=None, clear_session=False, additional_headers=None):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
+
+        origin = self.headers.get("Origin")
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
+        else:
+            self.send_header("Access-Control-Allow-Origin", "*")
+
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-XSS-Protection", "1; mode=block")
+
+        is_https = (
+            self.headers.get("X-Forwarded-Proto") == "https"
+            or os.environ.get("RENDER") is not None
+            or os.environ.get("PRODUCTION") is not None
+            or os.environ.get("ENVIRONMENT") == "production"
+        )
+        secure_flag = "; Secure" if is_https else ""
+
+        if clear_session:
+            # Eliminar cookie de sesión inmediatamente
+            self.send_header(
+                "Set-Cookie",
+                f"session_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax{secure_flag}"
+            )
+        elif session_token:
+            max_age = 30 * 24 * 3600  # 30 días = 2,592,000 segundos
+            expires_gmt = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + max_age))
+            cookie_val = f"session_token={session_token}; Path=/; Max-Age={max_age}; Expires={expires_gmt}; SameSite=Lax{secure_flag}"
+            self.send_header("Set-Cookie", cookie_val)
+
+        if additional_headers:
+            for k, v in additional_headers.items():
+                self.send_header(k, v)
+
         self.end_headers()
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin")
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
+        else:
+            self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 
-    def _get_current_user(self):
-        """Extrae el usuario autenticado a partir del encabezado Authorization o de cookies."""
+    def _get_current_user_and_token(self):
+        """Extrae el usuario autenticado y su token a partir del encabezado Authorization o de cookies."""
         auth_header = self.headers.get("Authorization", "")
         token = ""
         if auth_header.startswith("Bearer "):
@@ -88,11 +128,18 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                 for part in cookie_header.split(";"):
                     part = part.strip()
                     if part.startswith("session_token="):
-                        token = part.split("=", 1)[1]
+                        token = part.split("=", 1)[1].strip()
                         break
         if token:
-            return get_user_by_session(token)
-        return None
+            user = get_user_by_session(token)
+            if user:
+                return user, token
+        return None, ""
+
+    def _get_current_user(self):
+        """Extrae el usuario autenticado a partir del encabezado Authorization o de cookies."""
+        user, _ = self._get_current_user_and_token()
+        return user
 
     def _read_json_body(self):
         try:
@@ -126,11 +173,12 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
 
             # 1. Sesión activa del usuario
             if clean_path == "/api/auth/me":
-                user = self._get_current_user()
-                self._set_cors_and_json(200)
-                if user:
-                    self.wfile.write(json.dumps({"authenticated": True, "user": user}, ensure_ascii=False).encode("utf-8"))
+                user, token = self._get_current_user_and_token()
+                if user and token:
+                    self._set_cors_and_json(200, session_token=token)
+                    self.wfile.write(json.dumps({"authenticated": True, "user": user, "token": token}, ensure_ascii=False).encode("utf-8"))
                 else:
+                    self._set_cors_and_json(200)
                     self.wfile.write(json.dumps({"authenticated": False, "user": None}).encode("utf-8"))
                 return
 
@@ -498,7 +546,7 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                         return
 
                 token = create_session(user["id"])
-                self._set_cors_and_json(200)
+                self._set_cors_and_json(200, session_token=token)
                 self.wfile.write(json.dumps({"success": True, "token": token, "user": user}, ensure_ascii=False).encode("utf-8"))
                 return
 
@@ -664,7 +712,7 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                         resp_payload["verify_url"] = mail_res.get("verify_url")
                         resp_payload["notice"] = f"Modo simulación: Enlace de verificación: {mail_res.get('verify_url')}"
 
-                    self._set_cors_and_json(201)
+                    self._set_cors_and_json(201, session_token=token)
                     self.wfile.write(json.dumps(resp_payload, ensure_ascii=False).encode("utf-8"))
                 except ValueError as err:
                     self._set_cors_and_json(400)
@@ -683,11 +731,11 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                         for part in cookie_header.split(";"):
                             part = part.strip()
                             if part.startswith("session_token="):
-                                token = part.split("=", 1)[1]
+                                token = part.split("=", 1)[1].strip()
                                 break
                 if token:
                     delete_session(token)
-                self._set_cors_and_json(200)
+                self._set_cors_and_json(200, clear_session=True)
                 self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
                 return
 

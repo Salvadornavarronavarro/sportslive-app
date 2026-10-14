@@ -12,7 +12,7 @@ const clubState = {
   matchMessages: [],
   communityPollTimer: null,
   matchPollTimer: null,
-  currentUser: null
+  currentUser: JSON.parse(localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null')
 };
 
 // Palabras ofensivas comunes para moderación instantánea en cliente
@@ -116,20 +116,38 @@ function initClubCapsuleDropdowns() {
 }
 
 async function loadCurrentUser() {
+  const storedUserRaw = localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user');
+  if (storedUserRaw) {
+    try {
+      const u = JSON.parse(storedUserRaw);
+      if (u) {
+        clubState.currentUser = u;
+        renderUserHeader(u);
+      }
+    } catch (_) {}
+  }
   try {
-    const res = await fetch('/api/auth/me');
+    const token = localStorage.getItem('livesports_token') || localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token');
+    const headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch('/api/auth/me', { headers, credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
         clubState.currentUser = data.user;
+        localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
+        localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
         renderUserHeader(data.user);
-      } else {
+      } else if (data.authenticated === false) {
+        clubState.currentUser = null;
         renderUserHeader(null);
       }
     }
   } catch (err) {
     console.warn('Error fetching user auth:', err);
-    renderUserHeader(null);
+    if (!clubState.currentUser) {
+      renderUserHeader(null);
+    }
   }
 }
 
