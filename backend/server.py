@@ -5,6 +5,9 @@ Incorpora autenticación y control de acceso por roles (Usuario Final, Club Depo
 
 import sys
 import os
+import threading
+import zipfile
+import shutil
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import json
 import urllib.parse

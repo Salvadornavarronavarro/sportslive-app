@@ -8,6 +8,7 @@ import os
 import sys
 import webbrowser
 import threading
+import subprocess
 import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

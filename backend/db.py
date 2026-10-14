@@ -12,6 +12,8 @@ import hashlib
 import secrets
 import json
 import re
+import shutil
+import unicodedata
 from data.geo import get_province_info, CCAA_PROVINCIAS
 from data.sports import get_sport_info
 from backend.metadata import extract_metadata_from_url
@@ -825,13 +827,19 @@ def seed_default_users(cursor):
         }
     ]
 
+    now_iso = datetime.datetime.now().isoformat()
     for u in default_users:
         uname = u["username"].strip().lower()
         uemail = u["email"].strip().lower()
         cursor.execute("SELECT id FROM users WHERE id = ? OR username = ? OR email = ?", (u["id"], uname, uemail))
-        if cursor.fetchone():
-            continue
+        existing = cursor.fetchone()
         p_hash, salt = hash_password(u["password"])
+        if existing:
+            cursor.execute("""
+            UPDATE users SET password_hash = ?, salt = ?, role = ?, is_admin = ?, is_verified = ?
+            WHERE id = ?
+            """, (p_hash, salt, u["role"], u.get("is_admin", 0), u.get("is_verified", 1), existing[0]))
+            continue
         cursor.execute("""
         INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, created_at, is_admin)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -846,7 +854,7 @@ def seed_default_users(cursor):
             u["full_name"],
             u.get("cif", ""),
             u.get("location", ""),
-            u.get("is_verified", 0),
+            u.get("is_verified", 1),
             now_iso,
             u.get("is_admin", 0)
         ))
