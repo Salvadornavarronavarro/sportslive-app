@@ -734,6 +734,24 @@ function initCapsuleDropdowns() {
 
   // Renderizar listado de Comunidades Autónomas en el desplegable
   renderGeoDropdownList();
+
+  // Soporte táctil inmediato para cambio de pestañas en iPad / Safari (pointerdown y click)
+  const sportsTabBtn = document.getElementById('tab-btn-sports');
+  const geoTabBtn = document.getElementById('tab-btn-geo');
+  [
+    { btn: sportsTabBtn, tab: 'sports' },
+    { btn: geoTabBtn, tab: 'geo' }
+  ].forEach(({ btn, tab }) => {
+    if (!btn) return;
+    const tabHandler = (e) => {
+      if (e) {
+        e.stopPropagation();
+      }
+      switchExploreTab(tab, e);
+    };
+    btn.addEventListener('pointerdown', tabHandler, { passive: true });
+    btn.addEventListener('click', tabHandler);
+  });
 }
 
 function closeAllCapsuleDropdowns() {
@@ -750,7 +768,6 @@ function closeAllCapsuleDropdowns() {
 function switchExploreTab(tabName, event) {
   if (event) {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
-    if (typeof event.preventDefault === 'function') event.preventDefault();
   }
   const sportsTabBtn = document.getElementById('tab-btn-sports');
   const geoTabBtn = document.getElementById('tab-btn-geo');
@@ -769,10 +786,12 @@ function switchExploreTab(tabName, event) {
     if (sportsPanel) {
       sportsPanel.classList.add('active');
       sportsPanel.style.display = 'block';
+      sportsPanel.style.visibility = 'visible';
     }
     if (geoPanel) {
       geoPanel.classList.remove('active');
       geoPanel.style.display = 'none';
+      geoPanel.style.visibility = 'hidden';
     }
   } else if (tabName === 'geo') {
     if (geoTabBtn) {
@@ -786,10 +805,12 @@ function switchExploreTab(tabName, event) {
     if (geoPanel) {
       geoPanel.classList.add('active');
       geoPanel.style.display = 'block';
+      geoPanel.style.visibility = 'visible';
     }
     if (sportsPanel) {
       sportsPanel.classList.remove('active');
       sportsPanel.style.display = 'none';
+      sportsPanel.style.visibility = 'hidden';
     }
   }
 }

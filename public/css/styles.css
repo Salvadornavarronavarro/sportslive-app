@@ -604,22 +604,24 @@ body {
 
 /* ----------------- Explorar: Menú Desplegable con Pestañas (Tabs) ----------------- */
 .explore-floating-menu {
-  min-width: 290px;
-  max-width: 330px;
-  padding: 0;
+  min-width: 300px;
+  max-width: 340px;
+  padding: 0.65rem 0.65rem 0.4rem;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #1e293b;
   border: 1px solid #38bdf8;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.25);
 }
 
 .explore-tabs-header {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px;
+  border-radius: 20px;
   display: flex;
-  background: #0f172a;
-  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
-  padding: 6px;
   gap: 6px;
+  margin-bottom: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .explore-tab-btn {
@@ -628,30 +630,45 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 10px;
+  min-height: 40px;
+  padding: 8px 16px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: none;
+  border-radius: 16px;
   color: #94a3b8;
   font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: var(--transition-standard);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+  outline: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .explore-tab-btn:hover {
-  color: #e2e8f0;
-  background: rgba(56, 189, 248, 0.1);
-  border-color: rgba(56, 189, 248, 0.2);
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
 }
 
 .explore-tab-btn.active {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: #38bdf8;
-  color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  background: #0088cc;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 136, 204, 0.4);
+}
+
+.explore-tab-btn .tab-icon {
+  font-size: 14px;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.explore-tab-btn.active .tab-icon {
+  transform: scale(1.08);
 }
 
 .explore-tab-panel {
