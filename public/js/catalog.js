@@ -88,7 +88,7 @@ const GEO_CATALOG = [
   },
   {
     id: "comunidad-valenciana",
-    name: "Comunidad Valenciana",
+    name: "Comunitat Valenciana",
     provinces: [
       { id: "alicante", name: "Alicante" },
       { id: "castellon", name: "Castellón" },

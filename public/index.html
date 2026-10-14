@@ -43,7 +43,7 @@
         if (typeof state !== 'undefined' && state && state.currentUser) {
           u = state.currentUser;
         } else {
-          u = JSON.parse(localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null');
+          u = JSON.parse(localStorage.getItem('sportlive_user') || localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null');
         }
       } catch (_) {
         u = null;
@@ -224,7 +224,63 @@
                 </button>
                 <div class="dropdown-divider"></div>
                 <div class="geo-menu-scrollable" id="geo-menu-list">
-                  <!-- Comunidades Autónomas inyectadas por JS -->
+                  <button type="button" class="dropdown-item" data-ccaa="andalucia" onclick="selectGeoCcaa('andalucia')">
+                    <span class="item-icon">📍</span> <span>Andalucía</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="aragon" onclick="selectGeoCcaa('aragon')">
+                    <span class="item-icon">📍</span> <span>Aragón</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="asturias" onclick="selectGeoCcaa('asturias')">
+                    <span class="item-icon">📍</span> <span>Principado de Asturias</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="baleares" onclick="selectGeoCcaa('baleares')">
+                    <span class="item-icon">📍</span> <span>Islas Baleares</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="canarias" onclick="selectGeoCcaa('canarias')">
+                    <span class="item-icon">📍</span> <span>Canarias</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="cantabria" onclick="selectGeoCcaa('cantabria')">
+                    <span class="item-icon">📍</span> <span>Cantabria</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="castilla-la-mancha" onclick="selectGeoCcaa('castilla-la-mancha')">
+                    <span class="item-icon">📍</span> <span>Castilla-La Mancha</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="castilla-y-leon" onclick="selectGeoCcaa('castilla-y-leon')">
+                    <span class="item-icon">📍</span> <span>Castilla y León</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="cataluna" onclick="selectGeoCcaa('cataluna')">
+                    <span class="item-icon">📍</span> <span>Cataluña</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="comunidad-valenciana" onclick="selectGeoCcaa('comunidad-valenciana')">
+                    <span class="item-icon">📍</span> <span>Comunitat Valenciana</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="extremadura" onclick="selectGeoCcaa('extremadura')">
+                    <span class="item-icon">📍</span> <span>Extremadura</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="galicia" onclick="selectGeoCcaa('galicia')">
+                    <span class="item-icon">📍</span> <span>Galicia</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="madrid" onclick="selectGeoCcaa('madrid')">
+                    <span class="item-icon">📍</span> <span>Comunidad de Madrid</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="murcia" onclick="selectGeoCcaa('murcia')">
+                    <span class="item-icon">📍</span> <span>Región de Murcia</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="navarra" onclick="selectGeoCcaa('navarra')">
+                    <span class="item-icon">📍</span> <span>Comunidad Foral de Navarra</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="pais-vasco" onclick="selectGeoCcaa('pais-vasco')">
+                    <span class="item-icon">📍</span> <span>País Vasco</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="la-rioja" onclick="selectGeoCcaa('la-rioja')">
+                    <span class="item-icon">📍</span> <span>La Rioja</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="ceuta" onclick="selectGeoCcaa('ceuta')">
+                    <span class="item-icon">📍</span> <span>Ceuta</span>
+                  </button>
+                  <button type="button" class="dropdown-item" data-ccaa="melilla" onclick="selectGeoCcaa('melilla')">
+                    <span class="item-icon">📍</span> <span>Melilla</span>
+                  </button>
                 </div>
               </div>
             </div>

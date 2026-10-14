@@ -3,6 +3,31 @@
  * Jerarquía de contenidos (Nivel 1, Nivel 2, Nivel 3) y Doble Sistema de Chat
  */
 
+// Interceptor global para adjuntar automáticamente Authorization: Bearer <token> a todas las llamadas fetch
+(function setupAuthFetchInterceptor() {
+  const originalFetch = window.fetch;
+  window.fetch = function(resource, init = {}) {
+    const options = Object.assign({}, init);
+    const token = localStorage.getItem('sportlive_auth_token') ||
+      localStorage.getItem('livesports_token') ||
+      localStorage.getItem('livesports_auth_token') ||
+      localStorage.getItem('sportslive_auth_token') ||
+      localStorage.getItem('sportslive_token') ||
+      localStorage.getItem('talentolive_auth_token') || '';
+
+    const urlStr = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+    if (urlStr.startsWith('/api') || urlStr.includes('/api/')) {
+      options.credentials = options.credentials || 'include';
+      const headers = new Headers(options.headers || {});
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      options.headers = headers;
+    }
+    return originalFetch(resource, options);
+  };
+})();
+
 const clubState = {
   currentClub: null,
   activeVideo: null,
@@ -12,7 +37,12 @@ const clubState = {
   matchMessages: [],
   communityPollTimer: null,
   matchPollTimer: null,
-  currentUser: JSON.parse(localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null')
+  currentUser: JSON.parse(
+    localStorage.getItem('sportlive_user') ||
+    localStorage.getItem('livesports_current_user') ||
+    localStorage.getItem('sportslive_current_user') ||
+    'null'
+  )
 };
 
 // Palabras ofensivas comunes para moderación instantánea en cliente
@@ -116,7 +146,9 @@ function initClubCapsuleDropdowns() {
 }
 
 async function loadCurrentUser() {
-  const storedUserRaw = localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user');
+  const storedUserRaw = localStorage.getItem('sportlive_user') ||
+    localStorage.getItem('livesports_current_user') ||
+    localStorage.getItem('sportslive_current_user');
   if (storedUserRaw) {
     try {
       const u = JSON.parse(storedUserRaw);
@@ -127,7 +159,10 @@ async function loadCurrentUser() {
     } catch (_) {}
   }
   try {
-    const token = localStorage.getItem('livesports_token') || localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token');
+    const token = localStorage.getItem('sportlive_auth_token') ||
+      localStorage.getItem('livesports_token') ||
+      localStorage.getItem('livesports_auth_token') ||
+      localStorage.getItem('sportslive_auth_token');
     const headers = {};
     if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch('/api/auth/me', { headers, credentials: 'include' });
@@ -135,6 +170,12 @@ async function loadCurrentUser() {
       const data = await res.json();
       if (data.authenticated && data.user) {
         clubState.currentUser = data.user;
+        const validToken = data.auth_token || data.token || token;
+        if (validToken) {
+          localStorage.setItem('sportlive_auth_token', validToken);
+          localStorage.setItem('livesports_auth_token', validToken);
+        }
+        localStorage.setItem('sportlive_user', JSON.stringify(data.user));
         localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
         localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
         renderUserHeader(data.user);
@@ -909,7 +950,7 @@ async function handleSendCommunityMessage(e) {
   const clubId = clubState.currentClub.id || clubState.currentClub.name;
 
   const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('livesports_token') || localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token') || localStorage.getItem('sportslive_token') || localStorage.getItem('talentolive_token');
+  const token = localStorage.getItem('sportlive_auth_token') || localStorage.getItem('livesports_token') || localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token') || localStorage.getItem('sportslive_token') || localStorage.getItem('talentolive_token');
   if (token) {
     headers['Authorization'] = 'Bearer ' + token;
   }

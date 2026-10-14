@@ -4,6 +4,32 @@
  * ingesta inteligente de URLs con metadatos y reproductores embebidos.
  */
 
+// Interceptor global para adjuntar automáticamente Authorization: Bearer <token> a todas las llamadas fetch
+(function setupAuthFetchInterceptor() {
+  const originalFetch = window.fetch;
+  window.fetch = function(resource, init = {}) {
+    const options = Object.assign({}, init);
+    const token = (typeof state !== 'undefined' && state && state.token) ||
+      localStorage.getItem('sportlive_auth_token') ||
+      localStorage.getItem('livesports_auth_token') ||
+      localStorage.getItem('sportslive_auth_token') ||
+      localStorage.getItem('livesports_token') ||
+      localStorage.getItem('sportslive_token') ||
+      localStorage.getItem('talentolive_auth_token') || '';
+
+    const urlStr = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+    if (urlStr.startsWith('/api') || urlStr.includes('/api/')) {
+      options.credentials = options.credentials || 'include';
+      const headers = new Headers(options.headers || {});
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      options.headers = headers;
+    }
+    return originalFetch(resource, options);
+  };
+})();
+
 // Estado global de la aplicación
 const state = {
   currentTab: 'LIVE', // 'LIVE', 'UPCOMING', 'REPLAY'
@@ -30,8 +56,22 @@ const state = {
   activeClubMode: null, // ID o Nombre del club en modo monográfico exclusivo
   activeClubFilter: null, // Filtro activo por club o monográfico
   activeModalEvent: null,
-  currentUser: JSON.parse(localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user') || 'null'),
-  token: localStorage.getItem('livesports_auth_token') || localStorage.getItem('sportslive_auth_token') || localStorage.getItem('talentolive_auth_token') || localStorage.getItem('grada_auth_token') || '',
+  currentUser: JSON.parse(
+    localStorage.getItem('sportlive_user') ||
+    localStorage.getItem('livesports_current_user') ||
+    localStorage.getItem('sportslive_current_user') ||
+    'null'
+  ),
+  token: (
+    localStorage.getItem('sportlive_auth_token') ||
+    localStorage.getItem('livesports_auth_token') ||
+    localStorage.getItem('sportslive_auth_token') ||
+    localStorage.getItem('livesports_token') ||
+    localStorage.getItem('sportslive_token') ||
+    localStorage.getItem('talentolive_auth_token') ||
+    localStorage.getItem('grada_auth_token') ||
+    ''
+  ),
   adminMatches: [],
   adminUsers: [],
   sidebarTab: 'featured', // 'featured' o 'chat'
@@ -50,7 +90,9 @@ function getLiveSportsUser() {
     return state.currentUser;
   }
   try {
-    const raw = localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user');
+    const raw = localStorage.getItem('sportlive_user') ||
+      localStorage.getItem('livesports_current_user') ||
+      localStorage.getItem('sportslive_current_user');
     if (raw) {
       const u = JSON.parse(raw);
       if (u && (u.id || u.username)) {
@@ -418,6 +460,7 @@ function getAuthHeaders(includeContentType = true) {
   const headers = {};
   if (includeContentType) headers['Content-Type'] = 'application/json';
   const token = state.token ||
+    localStorage.getItem('sportlive_auth_token') ||
     localStorage.getItem('livesports_auth_token') ||
     localStorage.getItem('sportslive_auth_token') ||
     localStorage.getItem('livesports_token') ||
@@ -435,8 +478,11 @@ function getAuthHeaders(includeContentType = true) {
  */
 function restorePersistentAuth() {
   try {
-    const rawUser = localStorage.getItem('livesports_current_user') || localStorage.getItem('sportslive_current_user');
-    const token = localStorage.getItem('livesports_auth_token') ||
+    const rawUser = localStorage.getItem('sportlive_user') ||
+      localStorage.getItem('livesports_current_user') ||
+      localStorage.getItem('sportslive_current_user');
+    const token = localStorage.getItem('sportlive_auth_token') ||
+      localStorage.getItem('livesports_auth_token') ||
       localStorage.getItem('sportslive_auth_token') ||
       localStorage.getItem('livesports_token') ||
       localStorage.getItem('sportslive_token') ||
@@ -932,22 +978,10 @@ function renderGeoDropdownList() {
   const container = document.getElementById('geo-menu-list');
   if (!container || typeof GEO_CATALOG === 'undefined') return;
 
-  const activeClubs = (state.allClubs || []).filter(c => (c.is_active === undefined || c.is_active) && (c.approved_by_admin === undefined || c.approved_by_admin));
-  const activeEvents = (state.allEvents || []).filter(e => !isTestResidualEvent(e) && isEventOfApprovedClub(e));
-
-  const availableCcaas = new Set();
-  activeClubs.forEach(c => {
-    if (c.ccaa_id) availableCcaas.add(c.ccaa_id.toLowerCase().trim());
-  });
-  activeEvents.forEach(e => {
-    if (e.ccaa_id) availableCcaas.add(e.ccaa_id.toLowerCase().trim());
-  });
-
+  // Renderizar la totalidad de las 17 Comunidades Autónomas y 2 Ciudades Autónomas
+  // oficialmente reconocidas para permitir el filtrado territorial completo.
   container.innerHTML = '';
   GEO_CATALOG.forEach(ccaa => {
-    if (availableCcaas.size > 0 && !availableCcaas.has(ccaa.id.toLowerCase())) {
-      return;
-    }
     const item = document.createElement('button');
     item.type = 'button';
     item.className = `dropdown-item ${state.selectedCcaa === ccaa.id ? 'active' : ''}`;
@@ -988,22 +1022,22 @@ function getSportDisplayName(sportId) {
 function getCcaaShortName(ccaaId) {
   if (!ccaaId || ccaaId === 'all') return '🇪🇸 Toda España';
   const shortNames = {
-    'madrid': 'Madrid',
+    'madrid': 'Comunidad de Madrid',
     'andalucia': 'Andalucía',
     'cataluna': 'Cataluña',
-    'comunidad-valenciana': 'C. Valenciana',
+    'comunidad-valenciana': 'Comunitat Valenciana',
     'galicia': 'Galicia',
     'pais-vasco': 'País Vasco',
     'castilla-y-leon': 'Castilla y León',
     'castilla-la-mancha': 'Castilla-La Mancha',
     'canarias': 'Canarias',
-    'baleares': 'Baleares',
+    'baleares': 'Islas Baleares',
     'aragon': 'Aragón',
     'extremadura': 'Extremadura',
-    'asturias': 'Asturias',
-    'navarra': 'Navarra',
+    'asturias': 'Principado de Asturias',
+    'navarra': 'Comunidad Foral de Navarra',
     'cantabria': 'Cantabria',
-    'murcia': 'Murcia',
+    'murcia': 'Región de Murcia',
     'la-rioja': 'La Rioja',
     'ceuta': 'Ceuta',
     'melilla': 'Melilla'
@@ -1011,9 +1045,7 @@ function getCcaaShortName(ccaaId) {
   if (shortNames[ccaaId]) return shortNames[ccaaId];
   if (typeof GEO_CATALOG !== 'undefined') {
     const found = GEO_CATALOG.find(c => c.id === ccaaId);
-    if (found) {
-      return found.name.replace('Comunidad de ', '').replace('Principado de ', '').replace('Región de ', '');
-    }
+    if (found) return found.name;
   }
   return ccaaId.charAt(0).toUpperCase() + ccaaId.slice(1);
 }
@@ -5119,10 +5151,9 @@ async function exportAppToShare() {
    ========================================================== */
 
 async function initAuthSession() {
-  // Consultar /api/auth/me con credentials: 'include'.
-  // Las cookies persistentes (30 días, SameSite=Lax) se envían automáticamente,
-  // permitiendo que incluso si localStorage se limpió o tras suspender pestañas en iPad/Safari,
-  // la sesión se restablezca sin solicitar de nuevo usuario ni contraseña.
+  // Consultar /api/auth/me con Authorization: Bearer <token> y credentials: 'include'.
+  // Las credenciales en localStorage (sportlive_auth_token) y las cookies persistentes (30 días)
+  // permiten restaurar la sesión en iPad Safari incluso si Safari recargó o limpió cookies temporales.
   try {
     const res = await fetch('/api/auth/me', {
       headers: getAuthHeaders(false),
@@ -5132,12 +5163,15 @@ async function initAuthSession() {
       const data = await res.json();
       if (data.authenticated && data.user) {
         state.currentUser = data.user;
-        if (data.token) {
-          state.token = data.token;
-          localStorage.setItem('talentolive_auth_token', data.token);
-          localStorage.setItem('livesports_auth_token', data.token);
-          localStorage.setItem('sportslive_auth_token', data.token);
+        const validToken = data.auth_token || data.token || state.token;
+        if (validToken) {
+          state.token = validToken;
+          localStorage.setItem('sportlive_auth_token', validToken);
+          localStorage.setItem('talentolive_auth_token', validToken);
+          localStorage.setItem('livesports_auth_token', validToken);
+          localStorage.setItem('sportslive_auth_token', validToken);
         }
+        localStorage.setItem('sportlive_user', JSON.stringify(data.user));
         localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
         localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
         loadUserFavorites();
@@ -5146,11 +5180,16 @@ async function initAuthSession() {
         // Solo destruir credenciales locales si el backend confirma explícitamente que la sesión expiró
         state.currentUser = null;
         state.token = '';
+        localStorage.removeItem('sportlive_auth_token');
+        localStorage.removeItem('sportlive_user');
         localStorage.removeItem('talentolive_auth_token');
+        localStorage.removeItem('talentolive_token');
         localStorage.removeItem('grada_auth_token');
         localStorage.removeItem('livesports_auth_token');
+        localStorage.removeItem('livesports_token');
         localStorage.removeItem('livesports_current_user');
         localStorage.removeItem('sportslive_auth_token');
+        localStorage.removeItem('sportslive_token');
         localStorage.removeItem('sportslive_current_user');
         loadUserFavorites();
       }
@@ -5524,12 +5563,15 @@ async function handleAdminLoginSubmit(e) {
       throw new Error('Esta cuenta no dispone de permisos de Administrador.');
     }
 
-    state.token = data.token;
+    const validToken = data.auth_token || data.token;
+    state.token = validToken;
     state.currentUser = data.user;
-    localStorage.setItem('talentolive_auth_token', data.token);
-    localStorage.setItem('livesports_auth_token', data.token);
+    localStorage.setItem('sportlive_auth_token', validToken);
+    localStorage.setItem('sportlive_user', JSON.stringify(data.user));
+    localStorage.setItem('talentolive_auth_token', validToken);
+    localStorage.setItem('livesports_auth_token', validToken);
     localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-    localStorage.setItem('sportslive_auth_token', data.token);
+    localStorage.setItem('sportslive_auth_token', validToken);
     localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
 
     loadUserFavorites();
@@ -5584,12 +5626,15 @@ async function doLogin(identity, password) {
       throw new Error(data.error || 'Credenciales no válidas');
     }
 
-    state.token = data.token;
+    const validToken = data.auth_token || data.token;
+    state.token = validToken;
     state.currentUser = data.user;
-    localStorage.setItem('talentolive_auth_token', data.token);
-    localStorage.setItem('livesports_auth_token', data.token);
+    localStorage.setItem('sportlive_auth_token', validToken);
+    localStorage.setItem('sportlive_user', JSON.stringify(data.user));
+    localStorage.setItem('talentolive_auth_token', validToken);
+    localStorage.setItem('livesports_auth_token', validToken);
     localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-    localStorage.setItem('sportslive_auth_token', data.token);
+    localStorage.setItem('sportslive_auth_token', validToken);
     localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
 
     // Cargar favoritos aislados de esta cuenta
@@ -5671,12 +5716,15 @@ async function handleRegisterSubmit(e) {
       throw new Error(data.error || 'Error al registrar la cuenta');
     }
 
-    state.token = data.token;
+    const validToken = data.auth_token || data.token;
+    state.token = validToken;
     state.currentUser = data.user;
-    localStorage.setItem('talentolive_auth_token', data.token);
-    localStorage.setItem('livesports_auth_token', data.token);
+    localStorage.setItem('sportlive_auth_token', validToken);
+    localStorage.setItem('sportlive_user', JSON.stringify(data.user));
+    localStorage.setItem('talentolive_auth_token', validToken);
+    localStorage.setItem('livesports_auth_token', validToken);
     localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-    localStorage.setItem('sportslive_auth_token', data.token);
+    localStorage.setItem('sportslive_auth_token', validToken);
     localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
 
     loadUserFavorites();
@@ -5931,6 +5979,8 @@ async function logout() {
   // 1. Limpiar credenciales y sesión inmediatamente de forma reactiva y síncrona
   state.token = '';
   state.currentUser = null;
+  localStorage.removeItem('sportlive_auth_token');
+  localStorage.removeItem('sportlive_user');
   localStorage.removeItem('talentolive_auth_token');
   localStorage.removeItem('talentolive_token');
   localStorage.removeItem('grada_auth_token');

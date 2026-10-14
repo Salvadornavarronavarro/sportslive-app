@@ -120,14 +120,17 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
         """Extrae el usuario autenticado y su token a partir del encabezado Authorization o de cookies."""
         auth_header = self.headers.get("Authorization", "")
         token = ""
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1].strip()
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
         if not token:
             cookie_header = self.headers.get("Cookie", "")
-            if "session_token=" in cookie_header:
+            if "session_token=" in cookie_header or "auth_token=" in cookie_header:
                 for part in cookie_header.split(";"):
                     part = part.strip()
                     if part.startswith("session_token="):
+                        token = part.split("=", 1)[1].strip()
+                        break
+                    elif part.startswith("auth_token="):
                         token = part.split("=", 1)[1].strip()
                         break
         if token:
@@ -176,7 +179,12 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                 user, token = self._get_current_user_and_token()
                 if user and token:
                     self._set_cors_and_json(200, session_token=token)
-                    self.wfile.write(json.dumps({"authenticated": True, "user": user, "token": token}, ensure_ascii=False).encode("utf-8"))
+                    self.wfile.write(json.dumps({
+                        "authenticated": True,
+                        "user": user,
+                        "token": token,
+                        "auth_token": token
+                    }, ensure_ascii=False).encode("utf-8"))
                 else:
                     self._set_cors_and_json(200)
                     self.wfile.write(json.dumps({"authenticated": False, "user": None}).encode("utf-8"))
@@ -547,7 +555,12 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
 
                 token = create_session(user["id"])
                 self._set_cors_and_json(200, session_token=token)
-                self.wfile.write(json.dumps({"success": True, "token": token, "user": user}, ensure_ascii=False).encode("utf-8"))
+                self.wfile.write(json.dumps({
+                    "success": True,
+                    "token": token,
+                    "auth_token": token,
+                    "user": user
+                }, ensure_ascii=False).encode("utf-8"))
                 return
 
             # 1.1. Solicitud de recuperación de contraseña (¿Has olvidado tu contraseña?)
@@ -705,6 +718,7 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                     resp_payload = {
                         "success": True, 
                         "token": token, 
+                        "auth_token": token,
                         "user": new_user,
                         "message": "Revisa tu bandeja de entrada para verificar tu cuenta."
                     }
