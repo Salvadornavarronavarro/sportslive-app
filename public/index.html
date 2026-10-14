@@ -344,6 +344,24 @@
           </div>
         </div>
 
+        <!-- 4.1. [ 🔍 BUSCADOR GLOBAL YOUTUBE SPORTS ] -->
+        <div class="navbar-search-wrap" id="navbar-search-wrap">
+          <form class="navbar-search-form" id="navbar-search-form" onsubmit="handleGlobalSearchSubmit(event)" role="search">
+            <span class="navbar-search-icon" aria-hidden="true">🔍</span>
+            <input 
+              type="search" 
+              id="search-input" 
+              class="navbar-search-input" 
+              placeholder="Buscar en YouTube Sports..." 
+              autocomplete="off" 
+              enterkeyhint="search"
+              aria-label="Buscar en YouTube Sports"
+              oninput="handleSearchInputChange(this)"
+            >
+            <button type="button" class="navbar-search-clear-btn" id="navbar-search-clear-btn" onclick="clearGlobalSearch()" style="display: none;" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">&times;</button>
+          </form>
+        </div>
+
         <!-- 5. [ + EMITIR PARTIDO ] (Exclusivo para clubes y administradores) -->
         <button type="button" class="capsule-btn btn-broadcast-capsule" id="btn-header-broadcast" onclick="openIngestionModal()" title="Panel de Club / Enviar Emisión de Partido" style="display: none;">
           <span class="capsule-btn-text">+ EMITIR PARTIDO</span>
@@ -619,6 +637,30 @@
           <!-- Rellenado dinámicamente ÚNICAMENTE cuando existan directos activos -->
         </div>
       </div>
+
+      <!-- SECCIÓN DEDICADA: RESULTADOS EN YOUTUBE SPORTS (Búsqueda global efímera) -->
+      <section class="youtube-search-section" id="youtube-search-section" style="display: none;">
+        <div class="matches-section-header youtube-search-header">
+          <div class="live-header-indicator">
+            <span style="font-size: 1.25rem; margin-right: 0.35rem;">🌐</span>
+            <h2>Resultados en YouTube Sports</h2>
+            <span class="badge-external-search">Emisión Externa</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="matches-count" id="youtube-search-count">0 resultados</span>
+            <button type="button" class="btn-clear-active-filter" onclick="clearGlobalSearch()" title="Cerrar búsqueda de YouTube y volver a la cartelera" style="padding: 4px 10px; font-size: 0.78rem;">
+              <span class="clear-filter-x">✕</span>
+              <span>Cerrar</span>
+            </button>
+          </div>
+        </div>
+        <p class="youtube-search-subtitle" id="youtube-search-subtitle">
+          Resultados deportivos en tiempo real desde YouTube. Los vídeos externos no se almacenan en la plataforma ni pueden añadirse a Favoritos.
+        </p>
+        <div class="matches-grid youtube-search-grid" id="youtube-search-grid" aria-live="polite">
+          <!-- Tarjetas de búsqueda generadas dinámicamente -->
+        </div>
+      </section>
 
       <!-- SECCIÓN CATÁLOGO / EMISIONES POR CLUB -->
       <div class="catalog-section-container" id="catalog-section-container">

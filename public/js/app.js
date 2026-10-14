@@ -40,6 +40,8 @@ const state = {
   selectedCategory: 'all',
   selectedDiscipline: 'all',
   searchQuery: '',
+  externalSearchResults: [],
+  ephemeralSearchResults: {},
   allEvents: [],
   events: [],
   isFetchingEvents: false,
@@ -3117,6 +3119,7 @@ function resetAllFilters() {
 
   const searchInput = document.getElementById('search-input');
   if (searchInput) searchInput.value = '';
+  clearGlobalSearch();
 
   updateFilterButtonsVisual();
   applyFilters();
@@ -3225,13 +3228,15 @@ function loadFeaturedPlayer(evt) {
     info.style.clear = 'both';
     info.style.zIndex = '2';
     info.style.display = 'block';
-    const isLive = evt.status === 'LIVE';
-    const tagHtml = isLive
-      ? `<span class="featured-live-tag"><span class="live-dot"></span> EN VIVO</span>`
-      : `<span class="featured-live-tag" style="background:#3b82f6;"><span class="live-dot" style="background:#bfdbfe;"></span> ${escapeHtml(evt.status || 'DIRECTO')}</span>`;
+    const isLive = evt.status === 'LIVE' || evt.is_live;
+    const tagHtml = evt.is_external
+      ? `<span class="featured-live-tag" style="background:rgba(245, 158, 11, 0.25); color:#fbbf24; border:1px solid rgba(245, 158, 11, 0.5);"><span class="live-dot" style="background:#fbbf24;"></span> ${isLive ? 'LIVE EXTERNO' : 'EMISIÓN EXTERNA'}</span>`
+      : (isLive
+        ? `<span class="featured-live-tag"><span class="live-dot"></span> EN VIVO</span>`
+        : `<span class="featured-live-tag" style="background:#3b82f6;"><span class="live-dot" style="background:#bfdbfe;"></span> ${escapeHtml(evt.status || 'DIRECTO')}</span>`);
 
     let teamsRowHtml = '';
-    if (isLive && evt.home_score !== null && evt.away_score !== null) {
+    if (isLive && evt.home_score !== null && evt.away_score !== null && typeof evt.home_score !== 'undefined') {
       teamsRowHtml = `
         <div class="featured-teams-row">
           <span>${escapeHtml(evt.home_team)}</span>
@@ -3265,11 +3270,17 @@ function loadFeaturedPlayer(evt) {
       <div class="featured-player-topline">
         ${tagHtml}
         <div class="featured-meta-badges">
-          <span>${escapeHtml(evt.sport_icon || '🏅')} ${escapeHtml(evt.sport_name)}</span>
-          <span>•</span>
-          <span>${escapeHtml(evt.category_name || '')}</span>
-          <span>•</span>
-          <span>📍 ${escapeHtml(evt.location_venue || evt.province_name)}</span>
+          ${evt.is_external ? `
+            <span>📺 ${escapeHtml(evt.channelTitle || 'YouTube')}</span>
+            <span>•</span>
+            <span>YouTube Sports</span>
+          ` : `
+            <span>${escapeHtml(evt.sport_icon || '🏅')} ${escapeHtml(evt.sport_name)}</span>
+            <span>•</span>
+            <span>${escapeHtml(evt.category_name || '')}</span>
+            <span>•</span>
+            <span>📍 ${escapeHtml(evt.location_venue || evt.province_name)}</span>
+          `}
         </div>
       </div>
 
@@ -3283,7 +3294,7 @@ function loadFeaturedPlayer(evt) {
           <button type="button" class="btn-watch" onclick="openPlayerModal('${escapeHtml(evt.id)}')" style="padding: 0.35rem 0.85rem; font-size: 0.82rem;">
             🔍 Pantalla Completa / Ficha
           </button>
-          ${(evt.club_id || evt.club_name) ? `
+          ${(!evt.is_external && (evt.club_id || evt.club_name)) ? `
           <a href="club.html?club=${encodeURIComponent(evt.club_id || evt.club_name)}" class="btn-watch" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.5); color: #93c5fd;" title="Acceder a la ficha monográfica y videoteca completa del club">
             🏛️ Ficha del Club / Videoteca Completa ↗
           </a>
@@ -3301,7 +3312,13 @@ function loadFeaturedPlayer(evt) {
 window.loadFeaturedPlayer = loadFeaturedPlayer;
 
 function loadFeaturedPlayerById(eventId) {
-  const evt = state.events.find(e => e.id === eventId);
+  let evt = state.events.find(e => e.id === eventId);
+  if (!evt && state.allEvents) {
+    evt = state.allEvents.find(e => e.id === eventId);
+  }
+  if (!evt && state.ephemeralSearchResults && state.ephemeralSearchResults[eventId]) {
+    evt = state.ephemeralSearchResults[eventId];
+  }
   if (evt) {
     loadFeaturedPlayer(evt);
     const playerSection = document.getElementById('featured-player-section');
@@ -3896,17 +3913,158 @@ function initTabs() {
   }
 }
 
+function handleSearchInputChange(inputEl) {
+  const clearBtn = document.getElementById('navbar-search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = (inputEl && inputEl.value.trim().length > 0) ? 'inline-flex' : 'none';
+  }
+}
+window.handleSearchInputChange = handleSearchInputChange;
+
+async function handleGlobalSearchSubmit(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  const searchInput = document.getElementById('search-input');
+  if (!searchInput) return;
+
+  const query = searchInput.value.trim();
+  const clearBtn = document.getElementById('navbar-search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
+  }
+
+  if (!query) {
+    clearGlobalSearch();
+    return;
+  }
+
+  // Filtrar catálogo local simultáneamente
+  state.searchQuery = query;
+  applyFilters();
+
+  // Búsqueda externa en YouTube Sports
+  const section = document.getElementById('youtube-search-section');
+  const grid = document.getElementById('youtube-search-grid');
+  const countEl = document.getElementById('youtube-search-count');
+
+  if (section) section.style.display = 'block';
+  if (countEl) countEl.textContent = 'Buscando...';
+  if (grid) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1rem; color: #94a3b8;">
+        <div class="pulsing-dot" style="margin: 0 auto 0.75rem; width: 14px; height: 14px;"></div>
+        <p style="font-weight: 600; color: #e2e8f0; margin-bottom: 0.25rem;">Buscando emisiones deportivas en YouTube para "${escapeHtml(query)}"...</p>
+        <span style="font-size: 0.78rem; color: #64748b;">Consultando directos, clubes y partidos recientes</span>
+      </div>
+    `;
+  }
+
+  if (section) {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    if (!res.ok) throw new Error('Error al buscar en YouTube');
+    const items = await res.json();
+    state.externalSearchResults = Array.isArray(items) ? items : [];
+
+    if (!state.ephemeralSearchResults) state.ephemeralSearchResults = {};
+    state.externalSearchResults.forEach(item => {
+      item.is_external = true;
+      state.ephemeralSearchResults[item.id] = item;
+    });
+
+    renderExternalSearchResults(state.externalSearchResults, query);
+  } catch (err) {
+    console.error('Error en búsqueda de YouTube Sports:', err);
+    if (grid) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 2rem 1rem; color: #f87171;">
+          <p style="font-weight: 600;">No se pudo conectar con el servicio de búsqueda de YouTube.</p>
+          <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem;">Comprueba la conexión o intenta con otra consulta.</p>
+        </div>
+      `;
+    }
+    if (countEl) countEl.textContent = '0 resultados';
+  }
+}
+window.handleGlobalSearchSubmit = handleGlobalSearchSubmit;
+
+function renderExternalSearchResults(results, query) {
+  const grid = document.getElementById('youtube-search-grid');
+  const countEl = document.getElementById('youtube-search-count');
+  if (!grid) return;
+
+  if (!results || results.length === 0) {
+    if (countEl) countEl.textContent = '0 resultados';
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1rem; color: #94a3b8;">
+        <span style="font-size: 2rem; display: block; margin-bottom: 0.5rem;">🔍</span>
+        <p style="font-weight: 600; color: #e2e8f0; margin-bottom: 0.25rem;">No se encontraron emisiones en YouTube Sports para "${escapeHtml(query)}"</p>
+        <p style="font-size: 0.82rem; color: #64748b;">Prueba a buscar con el nombre del club, equipo o categoría (ej. "Intercity", "Alevín Zaragoza", "Cantera").</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (countEl) {
+    countEl.textContent = `${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}`;
+  }
+
+  grid.innerHTML = '';
+  results.forEach((item, idx) => {
+    item.is_external = true;
+    const card = createMatchCard(item, idx);
+    grid.appendChild(card);
+  });
+}
+
+function clearGlobalSearch() {
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) searchInput.value = '';
+
+  const clearBtn = document.getElementById('navbar-search-clear-btn');
+  if (clearBtn) clearBtn.style.display = 'none';
+
+  const section = document.getElementById('youtube-search-section');
+  if (section) section.style.display = 'none';
+
+  const grid = document.getElementById('youtube-search-grid');
+  if (grid) grid.innerHTML = '';
+
+  state.externalSearchResults = [];
+  state.ephemeralSearchResults = {};
+  state.searchQuery = '';
+  applyFilters();
+}
+window.clearGlobalSearch = clearGlobalSearch;
+
 function initSearch() {
   const searchInput = document.getElementById('search-input');
   if (!searchInput) return;
 
+  const form = document.getElementById('navbar-search-form');
+  if (form) {
+    form.addEventListener('submit', handleGlobalSearchSubmit);
+  }
+
   let debounceTimeout;
   searchInput.addEventListener('input', (e) => {
+    handleSearchInputChange(e.target);
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
       state.searchQuery = e.target.value.trim();
       applyFilters();
     }, 300);
+  });
+
+  searchInput.addEventListener('search', () => {
+    if (!searchInput.value.trim()) {
+      clearGlobalSearch();
+    }
   });
 }
 
@@ -4170,7 +4328,11 @@ function createMatchCard(evt, index = 0) {
 
   // Badge de estado
   let statusBadgeHtml = '';
-  if (isLive) {
+  if (evt.is_external) {
+    statusBadgeHtml = evt.is_live
+      ? `<span class="card-badge-status status-live"><span class="pulsing-dot" style="width:7px;height:7px;"></span> LIVE EXTERNO</span>`
+      : `<span class="card-badge-status card-badge-external"><span class="live-dot" style="background:#fbbf24;"></span> EMISIÓN EXTERNA</span>`;
+  } else if (isLive) {
     statusBadgeHtml = `<span class="card-badge-status status-live"><span class="pulsing-dot" style="width:7px;height:7px;"></span> LIVE</span>`;
   } else if (isUpcoming) {
     statusBadgeHtml = `<span class="card-badge-status status-upcoming">⏳ ${escapeHtml(dayFormatted)} ${escapeHtml(timeFormatted)}</span>`;
@@ -4226,9 +4388,9 @@ function createMatchCard(evt, index = 0) {
       <div class="card-badges-top">
         <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
           ${statusBadgeHtml}
-          ${isFavClub ? '<span class="card-fav-team-badge">⭐ FAVORITO</span>' : ''}
+          ${(!evt.is_external && isFavClub) ? '<span class="card-fav-team-badge">⭐ FAVORITO</span>' : ''}
         </div>
-        <span class="card-badge-platform">${escapeHtml(evt.platform || 'Directo')}</span>
+        <span class="card-badge-platform" ${evt.is_external ? 'style="background:#dc2626; color:white;"' : ''}>${escapeHtml(evt.is_external ? 'YouTube' : (evt.platform || 'Directo'))}</span>
       </div>
       <div class="play-overlay-icon" aria-label="Reproducir">▶</div>
     </div>
@@ -4240,7 +4402,9 @@ function createMatchCard(evt, index = 0) {
 
       <div class="card-meta-line">
         <div class="card-tags">
-          ${(() => {
+          ${evt.is_external ? `
+            <span class="sport-tag">🏅 YouTube Sports</span>
+          ` : (() => {
             const isCombat = (evt.sport_id || '').toLowerCase() === 'contacto' || (evt.sport_name || '').toLowerCase().includes('contacto') || (evt.sport_name || '').toLowerCase().includes('boxeo');
             let badgeIcon = evt.sport_icon || '🏅';
             let badgeLabel = evt.sport_name || 'Deporte';
@@ -4263,13 +4427,17 @@ function createMatchCard(evt, index = 0) {
               ${catSubtitle ? `<span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(catSubtitle)}</span>` : ''}
             `;
           })()}
-          ${isFavClub ? '<span class="card-fav-team-badge" style="font-size:0.65rem; padding:0.1rem 0.4rem;" title="Equipo o canal en tus favoritos">⭐ Siguiendo</span>' : ''}
+          ${(!evt.is_external && isFavClub) ? '<span class="card-fav-team-badge" style="font-size:0.65rem; padding:0.1rem 0.4rem;" title="Equipo o canal en tus favoritos">⭐ Siguiendo</span>' : ''}
         </div>
-        ${(evt.club_id || evt.club_name) ? `
+        ${evt.is_external ? `
+          <span style="font-size:0.75rem; color:#cbd5e1; display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.06); padding:2px 7px; border-radius:4px; border:1px solid rgba(255,255,255,0.12); font-weight:600;">
+            <span>📺</span> <span>${escapeHtml(evt.channelTitle || 'YouTube')}</span>
+          </span>
+        ` : ((evt.club_id || evt.club_name) ? `
           <a href="club.html?club=${encodeURIComponent(evt.club_id || evt.club_name)}" class="club-badge-link" onclick="event.stopPropagation();" title="Ir a la página oficial de ${escapeHtml(evt.club_name || evt.home_team)}" style="text-decoration:none; font-size:0.75rem; color:#38bdf8; display:inline-flex; align-items:center; gap:4px; background:rgba(56,189,248,0.12); padding:2px 7px; border-radius:4px; border:1px solid rgba(56,189,248,0.3); font-weight:600;">
             <span>🛡️</span> <span>Canal Club</span>
           </a>
-        ` : (evt.is_verified_club ? '<span class="verified-badge" title="Retransmisión oficial del club">🛡️ Club Verificado</span>' : '')}
+        ` : (evt.is_verified_club ? '<span class="verified-badge" title="Retransmisión oficial del club">🛡️ Club Verificado</span>' : ''))}
       </div>
 
       ${(isLive && evt.home_score !== null && evt.away_score !== null) ? `
@@ -4300,12 +4468,18 @@ function createMatchCard(evt, index = 0) {
 
       <div class="card-actions">
         <button class="btn-watch ${isUpcoming ? 'upcoming' : (isReplay ? 'replay' : '')}" onclick="loadFeaturedPlayerById('${safeId}')">
-          ${isLive ? '🔴 Ver en Directo' : (isUpcoming ? '⏳ Cargar Partido' : ((evt.content_type === 'press' || evt.content_type === 'reel') ? '▶ Ver Vídeo' : '📼 Ver Repetición'))}
+          ${evt.is_external ? '▶ Ver Emisión' : (isLive ? '🔴 Ver en Directo' : (isUpcoming ? '⏳ Cargar Partido' : ((evt.content_type === 'press' || evt.content_type === 'reel') ? '▶ Ver Vídeo' : '📼 Ver Repetición')))}
         </button>
-        <button class="btn-bell ${isFav ? 'active' : ''}" onclick="toggleFavorite('${safeId}', event)" title="Avisarme 10 min antes del partido">
-          ${isFav ? '🔔' : '🔕'}
-        </button>
-        ${(state.currentUser && (
+        ${evt.is_external ? `
+          <button class="btn-bell card-fav-disabled-btn" onclick="event.stopPropagation(); showToast('Solo los clubes oficiales verificados de LiveSports pueden guardarse en Favoritos', 'info');" title="Solo los clubes oficiales verificados de LiveSports pueden guardarse en Favoritos" aria-label="Favoritos solo para clubes verificados">
+            🔕
+          </button>
+        ` : `
+          <button class="btn-bell ${isFav ? 'active' : ''}" onclick="toggleFavorite('${safeId}', event)" title="Avisarme 10 min antes del partido">
+            ${isFav ? '🔔' : '🔕'}
+          </button>
+        `}
+        ${(!evt.is_external && state.currentUser && (
           state.currentUser.role === 'admin' ||
           (state.currentUser.role === 'club' && state.currentUser.club_name && (
             (evt.club_name && evt.club_name.toLowerCase() === state.currentUser.club_name.toLowerCase()) ||
@@ -4332,9 +4506,16 @@ async function openPlayerModal(eventId) {
   if (!modal) return;
 
   try {
-    const res = await fetch(`/api/events/${eventId}`);
-    if (!res.ok) throw new Error('No se encontró el evento');
-    const evt = await res.json();
+    let evt = null;
+    if (typeof eventId === 'object' && eventId !== null) {
+      evt = eventId;
+    } else if (state.ephemeralSearchResults && state.ephemeralSearchResults[eventId]) {
+      evt = state.ephemeralSearchResults[eventId];
+    } else {
+      const res = await fetch(`/api/events/${eventId}`);
+      if (!res.ok) throw new Error('No se encontró el evento');
+      evt = await res.json();
+    }
     state.activeModalEvent = evt;
 
     document.getElementById('player-modal-title').textContent = evt.title;
@@ -4353,26 +4534,37 @@ async function openPlayerModal(eventId) {
     `;
 
     // Equipos y marcador
-    const scoreDisplay = (evt.home_score !== null && evt.away_score !== null)
-      ? `<span style="color:#fbbf24; background:rgba(0,0,0,0.4); padding:0.2rem 0.6rem; border-radius:6px;">${escapeHtml(evt.home_score)} - ${escapeHtml(evt.away_score)}</span>`
-      : '<span style="color:var(--text-dim);">VS</span>';
+    if (evt.is_external) {
+      document.getElementById('player-teams').innerHTML = `
+        <div style="font-size: 1.15rem; font-weight: 700; display:flex; align-items:center; gap: 0.75rem;">
+          <span>${escapeHtml(evt.title)}</span>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span>📺 ${escapeHtml(evt.channelTitle || 'YouTube')}</span> • <span class="badge-external-search">Emisión Externa de YouTube Sports</span>
+        </div>
+      `;
+    } else {
+      const scoreDisplay = (evt.home_score !== null && evt.away_score !== null)
+        ? `<span style="color:#fbbf24; background:rgba(0,0,0,0.4); padding:0.2rem 0.6rem; border-radius:6px;">${escapeHtml(evt.home_score)} - ${escapeHtml(evt.away_score)}</span>`
+        : '<span style="color:var(--text-dim);">VS</span>';
 
-    document.getElementById('player-teams').innerHTML = `
-      <div style="font-size: 1.15rem; font-weight: 700; display:flex; align-items:center; gap: 0.75rem;">
-        <span>${escapeHtml(evt.home_team)}</span>
-        ${scoreDisplay}
-        <span>${escapeHtml(evt.away_team)}</span>
-      </div>
-      <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-        <span>${escapeHtml(evt.sport_icon)} ${escapeHtml(evt.sport_name)}</span> • <span>${escapeHtml(evt.category_name)}</span> • <span>📍 ${escapeHtml(evt.location_venue || evt.province_name)}</span>
-        ${(evt.club_id || evt.club_name) ? `• <a href="club.html?club=${encodeURIComponent(evt.club_id || evt.club_name)}" style="color:#60a5fa; text-decoration:none; font-weight:600;" title="Ver archivo histórico completo de este club">🏛️ Videoteca Completa del Club ↗</a>` : ''}
-      </div>
-    `;
+      document.getElementById('player-teams').innerHTML = `
+        <div style="font-size: 1.15rem; font-weight: 700; display:flex; align-items:center; gap: 0.75rem;">
+          <span>${escapeHtml(evt.home_team)}</span>
+          ${scoreDisplay}
+          <span>${escapeHtml(evt.away_team)}</span>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span>${escapeHtml(evt.sport_icon || '🏅')} ${escapeHtml(evt.sport_name || 'Deporte')}</span> • <span>${escapeHtml(evt.category_name || '')}</span> • <span>📍 ${escapeHtml(evt.location_venue || evt.province_name || '')}</span>
+          ${(evt.club_id || evt.club_name) ? `• <a href="club.html?club=${encodeURIComponent(evt.club_id || evt.club_name)}" style="color:#60a5fa; text-decoration:none; font-weight:600;" title="Ver archivo histórico completo de este club">🏛️ Videoteca Completa del Club ↗</a>` : ''}
+        </div>
+      `;
+    }
 
     // Espacio de patrocinador del club sanitizado o reclamo comercial para anunciantes
     const sponsorContainer = document.getElementById('player-sponsor-container');
     if (sponsorContainer) {
-      if (evt.sponsor_name && String(evt.sponsor_name).trim().length > 0) {
+      if (!evt.is_external && evt.sponsor_name && String(evt.sponsor_name).trim().length > 0) {
         const ctaBtn = evt.sponsor_url
           ? `<a href="${sanitizeUrl(evt.sponsor_url)}" target="_blank" rel="noopener noreferrer" class="btn-sponsor-cta">Visitar Web</a>`
           : '';
@@ -4404,11 +4596,21 @@ async function openPlayerModal(eventId) {
     }
 
     // Botón de favoritos del modal
-    const isFav = state.favorites.includes(evt.id);
     const favBtn = document.getElementById('btn-modal-fav');
     if (favBtn) {
-      favBtn.innerHTML = isFav ? '🔔 Equipo en favoritos' : '🔕 Seguir equipo (Aviso 10 min antes)';
-      favBtn.onclick = (e) => toggleFavorite(evt.id, e, true);
+      if (evt.is_external) {
+        favBtn.innerHTML = '🔕 Solo clubes verificados de LiveSports en Favoritos';
+        favBtn.classList.add('card-fav-disabled-btn');
+        favBtn.onclick = (e) => {
+          if (e) e.preventDefault();
+          showToast('Solo los clubes oficiales verificados de LiveSports pueden guardarse en Favoritos', 'info');
+        };
+      } else {
+        const isFav = state.favorites.includes(evt.id);
+        favBtn.classList.remove('card-fav-disabled-btn');
+        favBtn.innerHTML = isFav ? '🔔 Equipo en favoritos' : '🔕 Seguir equipo (Aviso 10 min antes)';
+        favBtn.onclick = (e) => toggleFavorite(evt.id, e, true);
+      }
     }
 
     // Botón de reporte
@@ -4419,7 +4621,7 @@ async function openPlayerModal(eventId) {
 
     // Botón de edición en modal si tiene permisos
     let editModalBtn = document.getElementById('btn-modal-edit-match');
-    const canEditEvt = state.currentUser && (
+    const canEditEvt = !evt.is_external && state.currentUser && (
       state.currentUser.role === 'admin' ||
       (state.currentUser.role === 'club' && state.currentUser.club_name && (
         (evt.club_name && evt.club_name.toLowerCase() === state.currentUser.club_name.toLowerCase()) ||
@@ -4442,7 +4644,7 @@ async function openPlayerModal(eventId) {
         clubProfileBtn.title = 'Acceder a la ficha monográfica y videoteca completa del club';
         toolbar.appendChild(clubProfileBtn);
       }
-      const clubIdOrName = evt.club_id || evt.club_name;
+      const clubIdOrName = (!evt.is_external) ? (evt.club_id || evt.club_name) : null;
       if (clubIdOrName) {
         clubProfileBtn.href = `club.html?club=${encodeURIComponent(clubIdOrName)}`;
         clubProfileBtn.innerHTML = `🏛️ Ficha del Club / Videoteca Completa ↗`;

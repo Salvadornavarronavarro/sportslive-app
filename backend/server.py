@@ -49,6 +49,7 @@ from backend.digest import (
     send_password_reset_email,
     send_verification_email
 )
+from backend.search import search_youtube_sports
 
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
 
@@ -436,6 +437,13 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                 }, ensure_ascii=False).encode("utf-8"))
                 return
 
+            # 4.3. Búsqueda global de emisiones deportivas en YouTube (resultados efímeros)
+            if clean_path == "/api/search":
+                q = filters.get("q") or filters.get("query") or ""
+                results = search_youtube_sports(q)
+                self._set_cors_and_json(200)
+                self.wfile.write(json.dumps(results, ensure_ascii=False).encode("utf-8"))
+                return
 
             # 5. Listado de eventos público (con filtros en cascada y optimización para portada)
             if clean_path == "/api/events":
