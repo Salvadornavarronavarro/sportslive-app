@@ -160,16 +160,16 @@
           <div class="floating-dropdown-menu explore-floating-menu" id="menu-explore" role="menu">
             <!-- Pestañas superiores del menú combinado -->
             <div class="explore-tabs-header" role="tablist">
-              <button type="button" class="explore-tab-btn active" id="tab-btn-sports" role="tab" aria-selected="true" onclick="switchExploreTab('sports', event)" onpointerdown="switchExploreTab('sports', event)">
+              <button type="button" class="explore-tab-btn active" id="tab-btn-sports" data-tab-target="tab-sports" role="tab" aria-selected="true" onclick="switchExploreTab('tab-sports', event)" onpointerdown="switchExploreTab('tab-sports', event)">
                 <span class="tab-icon">🏅</span> <span>Por Deporte</span>
               </button>
-              <button type="button" class="explore-tab-btn" id="tab-btn-geo" role="tab" aria-selected="false" onclick="switchExploreTab('geo', event)" onpointerdown="switchExploreTab('geo', event)">
+              <button type="button" class="explore-tab-btn" id="tab-btn-geo" data-tab-target="tab-regions" role="tab" aria-selected="false" onclick="switchExploreTab('tab-regions', event)" onpointerdown="switchExploreTab('tab-regions', event)">
                 <span class="tab-icon">📍</span> <span>Por Región</span>
               </button>
             </div>
 
             <!-- Panel 1: Listado completo de deportes -->
-            <div class="explore-tab-panel active" id="tab-panel-sports" role="tabpanel" aria-labelledby="tab-btn-sports">
+            <div class="explore-tab-panel active" id="tab-panel-sports" data-tab-content="tab-sports" role="tabpanel" aria-labelledby="tab-btn-sports">
               <div class="explore-tab-items-wrap" id="menu-sports">
                 <button type="button" class="dropdown-item active" data-sport="all" onclick="selectSportFilter('all')">
                   <span class="item-icon">🏅</span> <span>Todos los Deportes</span>
@@ -217,7 +217,7 @@
             </div>
 
             <!-- Panel 2: Listado de regiones / CCAA -->
-            <div class="explore-tab-panel" id="tab-panel-geo" role="tabpanel" aria-labelledby="tab-btn-geo" style="display: none;">
+            <div class="explore-tab-panel" id="tab-panel-geo" data-tab-content="tab-regions" role="tabpanel" aria-labelledby="tab-btn-geo" style="display: none;">
               <div class="explore-tab-items-wrap" id="menu-geo">
                 <button type="button" class="dropdown-item active" data-ccaa="all" onclick="selectGeoCcaa('all')">
                   <span class="item-icon">🇪🇸</span> <span>Toda España</span>

@@ -24,7 +24,8 @@ from backend.email_service import (
     get_email_config,
     get_envelope_sender,
     send_generic_email,
-    send_password_reset_email
+    send_password_reset_email,
+    send_verification_email
 )
 
 __all__ = [
@@ -43,5 +44,6 @@ __all__ = [
     "get_email_config",
     "get_envelope_sender",
     "send_generic_email",
-    "send_password_reset_email"
+    "send_password_reset_email",
+    "send_verification_email"
 ]

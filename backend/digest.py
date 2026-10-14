@@ -33,7 +33,8 @@ from backend.email_service import (
     SMTP_USE_SSL,
     get_email_config,
     get_envelope_sender,
-    send_password_reset_email
+    send_password_reset_email,
+    send_verification_email
 )
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")

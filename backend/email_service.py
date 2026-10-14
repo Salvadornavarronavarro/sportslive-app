@@ -327,3 +327,149 @@ Remitente del sistema: {sender_header}
             "token": token,
             "reset_url": reset_url
         }
+
+
+def send_verification_email(
+    recipient: str,
+    token: str,
+    user_name: str = "",
+    host_url: str = ""
+) -> dict:
+    """
+    Envía un correo con el enlace de verificación y activación de cuenta para nuevos usuarios.
+    Remitente oficial: alicanteparadisestudios@gmail.com
+    Nombre visible: LiveSports <alicanteparadisestudios@gmail.com>
+    """
+    cfg = get_email_config()
+    sender_header = cfg["from"]
+    envelope_sender = get_envelope_sender(sender_header, cfg["user"])
+
+    base_url = (host_url or os.environ.get("BASE_URL") or "https://livesports.onrender.com").rstrip("/")
+    verify_url = f"{base_url}/api/auth/verify-email?token={token}"
+
+    display_name = user_name.strip() if user_name else "aficionado de LiveSports"
+
+    plain_body = f"""Hola {display_name},
+
+¡Bienvenido a LiveSports!
+
+Para activar y verificar tu cuenta de aficionado, por favor haz clic en el siguiente enlace:
+{verify_url}
+
+Si no has creado esta cuenta, puedes ignorar este mensaje de forma segura.
+
+Atentamente,
+El equipo de LiveSports
+{sender_header}
+"""
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Verifica tu cuenta en LiveSports</title>
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background-color:#0b0f19; margin:0; padding:24px; color:#f1f5f9;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:580px; margin:0 auto; background:#1e293b; border-radius:14px; overflow:hidden; border:1px solid #38bdf8; box-shadow:0 12px 30px rgba(0,0,0,0.6);">
+    <tr>
+      <td style="padding:28px 32px; background:linear-gradient(135deg, #090d16 0%, #1e293b 100%); text-align:center; border-bottom:1px solid #334155;">
+        <span style="font-size:36px;">🏅</span>
+        <h1 style="margin:8px 0 0; color:#38bdf8; font-size:24px; letter-spacing:0.5px;">LiveSports</h1>
+        <p style="margin:4px 0 0; color:#94a3b8; font-size:13px;">Deporte en Directo • Canales Oficiales de Clubes</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        <h2 style="margin:0 0 16px; font-size:19px; color:#f8fafc;">¡Bienvenido, {display_name}!</h2>
+        <p style="font-size:15px; line-height:1.6; color:#cbd5e1; margin:0 0 20px;">
+          Gracias por registrarte en LiveSports. Para completar tu registro y verificar tu dirección de correo electrónico, haz clic en el siguiente botón:
+        </p>
+
+        <div style="text-align:center; margin:32px 0;">
+          <a href="{verify_url}" style="display:inline-block; background:#0088cc; color:#ffffff; font-weight:700; font-size:15px; padding:14px 32px; border-radius:30px; text-decoration:none; box-shadow:0 4px 14px rgba(0,136,204,0.4);">
+            ✅ Activar y Verificar Mi Cuenta
+          </a>
+        </div>
+
+        <p style="font-size:13px; line-height:1.5; color:#94a3b8; margin:24px 0 0;">
+          Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br>
+          <a href="{verify_url}" style="color:#38bdf8; word-break:break-all;">{verify_url}</a>
+        </p>
+
+        <p style="font-size:12px; color:#64748b; margin:24px 0 0; border-top:1px solid #334155; padding-top:16px;">
+          Si no has creado una cuenta en LiveSports, puedes ignorar este correo de forma segura. Este enlace expirará en 48 horas.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="background:#090d16; padding:16px 28px; border-top:1px solid #1e293b; text-align:center;">
+        <p style="margin:0; font-size:12px; color:#64748b;">
+          LiveSports • Correo emitido desde <strong>{sender_header}</strong> • Mensaje automático de verificación.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    # Modo simulación si SMTP_PASS no está configurado
+    if not cfg["password"]:
+        print(f"📧 [LiveSports Email Verification] SMTP_PASS no configurado (modo simulación).")
+        print(f"   Remitente: {sender_header}")
+        print(f"   Destinatario: {recipient}")
+        print(f"   Token: {token}")
+        print(f"   Enlace de activación: {verify_url}")
+        return {
+            "sent": True,
+            "simulated": True,
+            "sender": sender_header,
+            "recipient": recipient,
+            "token": token,
+            "verify_url": verify_url,
+            "message": f"Modo simulación: enlace de verificación generado para {recipient} desde {sender_header}."
+        }
+
+    # Envío real a través de SMTP
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "✅ LiveSports: Verifica tu cuenta"
+        msg["From"] = sender_header
+        msg["To"] = recipient
+
+        msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        if cfg["use_ssl"] or cfg["port"] == 465:
+            server = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=20)
+        else:
+            server = smtplib.SMTP(cfg["host"], cfg["port"], timeout=20)
+            server.starttls()
+
+        if cfg["user"] and cfg["password"]:
+            server.login(cfg["user"], cfg["password"])
+
+        server.sendmail(envelope_sender, [recipient], msg.as_string())
+        server.quit()
+
+        print(f"✅ [LiveSports Email Verification] Correo de verificación enviado a {recipient} desde {sender_header}.")
+        return {
+            "sent": True,
+            "simulated": False,
+            "sender": sender_header,
+            "recipient": recipient,
+            "verify_url": verify_url,
+            "message": f"Correo de verificación enviado exitosamente a {recipient} desde {sender_header}."
+        }
+    except Exception as err:
+        err_msg = str(err)
+        print(f"⚠️ [LiveSports Email Verification Error]: {err_msg}")
+        return {
+            "sent": False,
+            "simulated": False,
+            "sender": sender_header,
+            "recipient": recipient,
+            "error": f"Error SMTP al enviar correo a {recipient}: {err_msg}",
+            "token": token,
+            "verify_url": verify_url
+        }
+

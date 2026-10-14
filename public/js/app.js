@@ -464,6 +464,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }, 300);
     }
+
+    // Soporte para confirmación de cuenta verificada (?verified=1)
+    if (urlParams.get('verified') === '1') {
+      setTimeout(() => {
+        showToast('¡Cuenta verificada con éxito! Ya puedes iniciar sesión.', 'success');
+        if (typeof openAuthModal === 'function') {
+          openAuthModal('login');
+        }
+      }, 350);
+    }
   } catch (_) {}
 });
 
@@ -735,21 +745,18 @@ function initCapsuleDropdowns() {
   // Renderizar listado de Comunidades Autónomas en el desplegable
   renderGeoDropdownList();
 
-  // Soporte táctil inmediato para cambio de pestañas en iPad / Safari (pointerdown y click)
-  const sportsTabBtn = document.getElementById('tab-btn-sports');
-  const geoTabBtn = document.getElementById('tab-btn-geo');
-  [
-    { btn: sportsTabBtn, tab: 'sports' },
-    { btn: geoTabBtn, tab: 'geo' }
-  ].forEach(({ btn, tab }) => {
-    if (!btn) return;
+  // Soporte táctil inmediato y unificado para cambio de pestañas en iPad / Safari / Android / Desktop
+  const tabButtons = document.querySelectorAll('.explore-tab-btn, [data-tab-target]');
+  tabButtons.forEach(btn => {
+    const target = btn.getAttribute('data-tab-target') || (btn.id === 'tab-btn-geo' ? 'tab-regions' : 'tab-sports');
     const tabHandler = (e) => {
       if (e) {
-        e.stopPropagation();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
       }
-      switchExploreTab(tab, e);
+      switchExploreTab(target, e);
     };
-    btn.addEventListener('pointerdown', tabHandler, { passive: true });
+    btn.addEventListener('pointerdown', tabHandler, { passive: false });
     btn.addEventListener('click', tabHandler);
   });
 }
@@ -768,13 +775,16 @@ function closeAllCapsuleDropdowns() {
 function switchExploreTab(tabName, event) {
   if (event) {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.preventDefault === 'function') event.preventDefault();
   }
-  const sportsTabBtn = document.getElementById('tab-btn-sports');
-  const geoTabBtn = document.getElementById('tab-btn-geo');
-  const sportsPanel = document.getElementById('tab-panel-sports');
-  const geoPanel = document.getElementById('tab-panel-geo');
+  const isRegions = tabName === 'tab-regions' || tabName === 'geo' || tabName === 'regions' || tabName === 'regiones';
 
-  if (tabName === 'sports') {
+  const sportsTabBtn = document.getElementById('tab-btn-sports') || document.querySelector('[data-tab-target="tab-sports"]');
+  const geoTabBtn = document.getElementById('tab-btn-geo') || document.querySelector('[data-tab-target="tab-regions"]');
+  const sportsPanel = document.getElementById('tab-panel-sports') || document.querySelector('[data-tab-content="tab-sports"]');
+  const geoPanel = document.getElementById('tab-panel-geo') || document.querySelector('[data-tab-content="tab-regions"]');
+
+  if (!isRegions) {
     if (sportsTabBtn) {
       sportsTabBtn.classList.add('active');
       sportsTabBtn.setAttribute('aria-selected', 'true');
@@ -793,7 +803,7 @@ function switchExploreTab(tabName, event) {
       geoPanel.style.display = 'none';
       geoPanel.style.visibility = 'hidden';
     }
-  } else if (tabName === 'geo') {
+  } else {
     if (geoTabBtn) {
       geoTabBtn.classList.add('active');
       geoTabBtn.setAttribute('aria-selected', 'true');
@@ -1013,6 +1023,22 @@ function isSportMatch(evt, targetSport, targetDiscipline = 'all') {
   return s === target;
 }
 
+function isClubSportMatch(clubObj, targetSport, targetDiscipline = 'all') {
+  if (!targetSport || targetSport === 'all') return true;
+  if (!clubObj) return true;
+  const s = (clubObj.sport_id || '').toLowerCase().trim();
+  const mockEvt = {
+    sport_id: s,
+    discipline: clubObj.discipline || clubObj.category || '',
+    modality: clubObj.modality || '',
+    category_id: clubObj.category_id || clubObj.category || '',
+    category_name: clubObj.category_name || clubObj.category || '',
+    title: clubObj.name || ''
+  };
+  return isSportMatch(mockEvt, targetSport, targetDiscipline);
+}
+window.isClubSportMatch = isClubSportMatch;
+
 function sanitizeEventSportAndClubData(evt) {
   if (!evt) return evt;
 
@@ -1222,6 +1248,21 @@ function isEventInCcaa(evt, targetCcaaId) {
 
   return false;
 }
+
+function isClubInCcaa(clubObj, targetCcaaId) {
+  if (!targetCcaaId || targetCcaaId === 'all') return true;
+  if (!clubObj) return true;
+  const mockEvt = {
+    ccaa_id: clubObj.ccaa_id,
+    ccaa_name: clubObj.ccaa_name || clubObj.region,
+    region: clubObj.region || clubObj.ccaa_name,
+    province_id: clubObj.province_id,
+    province_name: clubObj.province_name,
+    location_venue: clubObj.location || clubObj.city || ''
+  };
+  return isEventInCcaa(mockEvt, targetCcaaId);
+}
+window.isClubInCcaa = isClubInCcaa;
 
 function isEventToday(evt) {
   if (evt.status === 'LIVE') return true;
@@ -2529,13 +2570,49 @@ function renderPerClubHorizontalRows(container, cleanEvents = [], isFavoritesOnl
     });
   }
 
+  const selectedSport = state.selectedSport;
+  const selectedDiscipline = state.selectedDiscipline;
+  const selectedCcaa = state.selectedCcaa;
+
+  const matchesSportStrict = (cObj, cEvts) => {
+    if (!selectedSport || selectedSport === 'all') return true;
+    if (cObj && typeof isClubSportMatch === 'function') {
+      if (!isClubSportMatch(cObj, selectedSport, selectedDiscipline)) return false;
+    }
+    if (cEvts && cEvts.length > 0) {
+      return cEvts.some(e => isSportMatch(e, selectedSport, selectedDiscipline));
+    }
+    return !cObj;
+  };
+
+  const matchesGeoStrict = (cObj, cEvts) => {
+    if (!selectedCcaa || selectedCcaa === 'all') return true;
+    if (cObj && typeof isClubInCcaa === 'function') {
+      if (!isClubInCcaa(cObj, selectedCcaa)) return false;
+    }
+    if (cEvts && cEvts.length > 0) {
+      return cEvts.some(e => isEventInCcaa(e, selectedCcaa));
+    }
+    return !cObj;
+  };
+
   // Iterar individualmente sobre cada club
   clubsToRender.forEach(({ clubObj, clubName }) => {
     // Obtener todas las emisiones de este club específico
     const clubEvents = cleanEvents.filter(e => isEventOfClub(e, clubObj || clubName));
 
-    // Si estamos en catálogo general y este club no tiene emisiones con los filtros actuales, no mostrar su fila
-    if (!isFavoritesOnly && clubEvents.length === 0) {
+    // Si un club no tiene emisiones con los filtros actuales (tanto en catálogo general como en favoritos), omitir completamente
+    if (clubEvents.length === 0) {
+      return;
+    }
+
+    // Filtrado estricto por deporte: excluir clubes de otros deportes (e.g. fútbol o boxeo si se filtra baloncesto)
+    if (!matchesSportStrict(clubObj, clubEvents)) {
+      return;
+    }
+
+    // Filtrado estricto territorial: excluir clubes de otras comunidades autónomas
+    if (!matchesGeoStrict(clubObj, clubEvents)) {
       return;
     }
 
@@ -2597,20 +2674,11 @@ function renderPerClubHorizontalRows(container, cleanEvents = [], isFavoritesOnl
     // Contenedor Derecho: Exactamente 4 vídeos en línea en escritorio
     const rightContainer = document.createElement('div');
     rightContainer.className = 'fav-club-row-right-container';
-
-    if (latest4.length > 0) {
-      latest4.forEach((evt, idx) => {
-        const card = createMatchCard(evt, idx);
-        card.classList.add('fav-scaled-card');
-        rightContainer.appendChild(card);
-      });
-    } else {
-      rightContainer.innerHTML = `
-        <div class="fav-club-empty-notice" style="grid-column: 1 / -1; display:flex; align-items:center; justify-content:center; padding: 1.25rem 1rem; color: #94a3b8; font-size: 0.75rem; text-align: center; background: rgba(255,255,255,0.02); border-radius: 6px;">
-          Actualmente no hay emisiones recientes registradas para este club.
-        </div>
-      `;
-    }
+    latest4.forEach((evt, idx) => {
+      const card = createMatchCard(evt, idx);
+      card.classList.add('fav-scaled-card');
+      rightContainer.appendChild(card);
+    });
 
     rowSection.appendChild(rightContainer);
     container.appendChild(rowSection);
@@ -2663,6 +2731,20 @@ function renderPerClubHorizontalRows(container, cleanEvents = [], isFavoritesOnl
       container.appendChild(rowSection);
       totalSections++;
     }
+  }
+
+  // Si no se encontró ninguna fila de club ni vídeo con los filtros activos, mostrar mensaje centrado
+  if (totalSections === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="width: 100%; grid-column: 1 / -1; padding: 3.5rem 1.5rem; text-align: center; margin: 0 auto;">
+        <div class="empty-icon" style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.6rem;">No se encontraron emisiones para este filtro</h3>
+        <p style="color: #94a3b8; font-size: 0.92rem; max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.5;">Prueba a cambiar de deporte, seleccionar otra comunidad autónoma o restablecer los filtros para descubrir más emisiones.</p>
+        <button type="button" class="capsule-btn" style="margin: 0 auto;" onclick="resetAllFilters()">
+          <span>🔄</span> <span>Ver todas las emisiones</span>
+        </button>
+      </div>
+    `;
   }
 
   return totalSections;
@@ -3893,20 +3975,13 @@ function renderEvents(events) {
       favContainer.innerHTML = '';
     }
     grid.style.display = 'grid';
-    const isCcaaFiltered = state.selectedCcaa && state.selectedCcaa !== 'all';
-    const emptyTitle = isCcaaFiltered 
-      ? 'No hay emisiones disponibles en esta comunidad' 
-      : 'No hay retransmisiones oficiales disponibles con estos filtros';
-    const emptyDesc = isCcaaFiltered
-      ? 'Actualmente no hay partidos en directo ni programados para este territorio. Selecciona otra comunidad autónoma o consulta todo el catálogo nacional.'
-      : 'Prueba a cambiar de deporte, seleccionar otra comunidad autónoma o restablecer los filtros para descubrir más partidos en directo.';
     grid.innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1; padding: 3.5rem 1.5rem; text-align: center;">
-        <div class="empty-icon" style="font-size: 3rem; margin-bottom: 1rem;">📍</div>
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.6rem;">${emptyTitle}</h3>
-        <p style="color: #94a3b8; font-size: 0.92rem; max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.5;">${emptyDesc}</p>
+        <div class="empty-icon" style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.6rem;">No se encontraron emisiones para este filtro</h3>
+        <p style="color: #94a3b8; font-size: 0.92rem; max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.5;">Prueba a cambiar de deporte, seleccionar otra comunidad autónoma o restablecer los filtros para descubrir más emisiones.</p>
         <button type="button" class="capsule-btn" style="margin: 0 auto;" onclick="resetAllFilters()">
-          <span>🔄</span> <span>Ver todos los partidos</span>
+          <span>🔄</span> <span>Ver todas las emisiones</span>
         </button>
       </div>
     `;
@@ -3933,20 +4008,25 @@ function renderEvents(events) {
   if (favContainer) {
     favContainer.style.display = 'flex';
     const renderedSections = renderPerClubHorizontalRows(favContainer, cleanEvents, isFavoritesView);
-    if (renderedSections > 0) {
+    if (renderedSections > 0 || cleanEvents.length === 0) {
       grid.style.display = 'none';
       grid.innerHTML = '';
       return;
     }
   }
 
-  // Fallback a rejilla estándar si ninguna agrupación produjo contenido
-  if (favContainer) favContainer.style.display = 'none';
+  // Fallback si favContainer no está en el DOM
   grid.style.display = 'grid';
-  grid.innerHTML = '';
-  events.forEach((evt, idx) => {
-    grid.appendChild(createMatchCard(evt, idx));
-  });
+  grid.innerHTML = `
+    <div class="empty-state" style="grid-column: 1 / -1; padding: 3.5rem 1.5rem; text-align: center;">
+      <div class="empty-icon" style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.6rem;">No se encontraron emisiones para este filtro</h3>
+      <p style="color: #94a3b8; font-size: 0.92rem; max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.5;">Prueba a cambiar de deporte, seleccionar otra comunidad autónoma o restablecer los filtros para descubrir más emisiones.</p>
+      <button type="button" class="capsule-btn" style="margin: 0 auto;" onclick="resetAllFilters()">
+        <span>🔄</span> <span>Ver todas las emisiones</span>
+      </button>
+    </div>
+  `;
 }
 
 function getSportIcon(sportId) {
@@ -5556,7 +5636,10 @@ async function handleRegisterSubmit(e) {
     if (role === 'club') {
       showToast(`¡Club ${data.user.club_name} registrado! Acceso concedido a tu Panel de Emisión.`, 'success');
     } else {
-      showToast(`¡Bienvenido a LiveSports, ${data.user.full_name || data.user.username}! Cuenta de aficionado creada.`, 'success');
+      showToast(data.message || '¡Cuenta creada! Revisa tu bandeja de entrada para verificar tu cuenta.', 'success');
+      if (data.notice) {
+        console.log('📧', data.notice);
+      }
     }
   } catch (err) {
     if (errBox) {

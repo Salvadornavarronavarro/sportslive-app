@@ -31,7 +31,8 @@ from backend.db import (
     get_club_by_id_or_name, get_club_community_messages, create_club_community_message,
     create_club, delete_club, import_club_youtube_videos,
     get_subscribers_summary,
-    create_password_reset_token, verify_password_reset_token, reset_password_with_token
+    create_password_reset_token, verify_password_reset_token, reset_password_with_token,
+    verify_user_email, generate_verification_token
 )
 from backend.metadata import extract_metadata_from_url
 from backend.moderation import contains_offensive_language
@@ -45,7 +46,8 @@ from backend.digest import (
     ADMIN_EMAIL,
     send_subscribers_digest,
     start_weekly_digest_scheduler,
-    send_password_reset_email
+    send_password_reset_email,
+    send_verification_email
 )
 
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
@@ -150,6 +152,123 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                     "email": info["email"],
                     "username": info.get("username", "")
                 }, ensure_ascii=False).encode("utf-8"))
+                return
+
+            # 1.2. Verificación y activación de cuenta por correo electrónico
+            if clean_path in ("/api/auth/verify-email", "/verify-email", "/verify"):
+                token = query_params.get("token", [""])[0].strip()
+                accept_header = self.headers.get("Accept", "")
+                is_json_request = "application/json" in accept_header
+
+                if not token:
+                    if is_json_request:
+                        self._set_cors_and_json(400)
+                        self.wfile.write(json.dumps({"success": False, "error": "Token de verificación no proporcionado."}).encode("utf-8"))
+                    else:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.end_headers()
+                        self.wfile.write("""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error de Verificación - LiveSports</title>
+  <style>
+    body { background: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .card { background: #1e293b; border: 1px solid #ef4444; border-radius: 16px; padding: 36px 28px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 16px 36px rgba(0,0,0,0.7); }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 20px; margin: 0 0 12px; color: #f87171; }
+    p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+    .btn { display: inline-block; background: #0088cc; color: #fff; text-decoration: none; font-weight: 600; padding: 12px 28px; border-radius: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">⚠️</div>
+    <h1>Token no proporcionado</h1>
+    <p>El enlace de activación es incompleto o no contiene un token válido.</p>
+    <a href="/" class="btn">Volver a LiveSports</a>
+  </div>
+</body>
+</html>""".encode("utf-8"))
+                    return
+
+                ok, msg, user_data = verify_user_email(token)
+                if not ok:
+                    if is_json_request:
+                        self._set_cors_and_json(400)
+                        self.wfile.write(json.dumps({"success": False, "error": msg}).encode("utf-8"))
+                    else:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.end_headers()
+                        self.wfile.write(f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificación de Cuenta - LiveSports</title>
+  <style>
+    body {{ background: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+    .card {{ background: #1e293b; border: 1px solid #ef4444; border-radius: 16px; padding: 36px 28px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 16px 36px rgba(0,0,0,0.7); }}
+    .icon {{ font-size: 48px; margin-bottom: 16px; }}
+    h1 {{ font-size: 20px; margin: 0 0 12px; color: #f87171; }}
+    p {{ color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
+    .btn {{ display: inline-block; background: #0088cc; color: #fff; text-decoration: none; font-weight: 600; padding: 12px 28px; border-radius: 24px; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">⚠️</div>
+    <h1>Enlace no válido o caducado</h1>
+    <p>{msg}</p>
+    <a href="/" class="btn">Volver a LiveSports</a>
+  </div>
+</body>
+</html>""".encode("utf-8"))
+                    return
+
+                if is_json_request:
+                    self._set_cors_and_json(200)
+                    self.wfile.write(json.dumps({"success": True, "message": "¡Cuenta verificada con éxito! Ya puedes iniciar sesión."}).encode("utf-8"))
+                    return
+
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>\xc2\xa1Cuenta verificada con \xc3\xa9xito! - LiveSports</title>
+  <style>
+    body { background: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .card { background: #1e293b; border: 1px solid #38bdf8; border-radius: 16px; padding: 40px 32px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(56,189,248,0.25); }
+    .icon { font-size: 52px; margin-bottom: 18px; }
+    h1 { font-size: 22px; margin: 0 0 12px; color: #38bdf8; font-weight: 700; }
+    p { color: #cbd5e1; font-size: 15px; line-height: 1.6; margin: 0 0 28px; }
+    .btn { display: inline-block; background: #0088cc; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 30px; box-shadow: 0 4px 16px rgba(0,136,204,0.4); }
+    .btn:hover { background: #0099e6; }
+    .sub { color: #64748b; font-size: 12px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">\xe2\x9c\x85</div>
+    <h1>\xc2\xa1Cuenta verificada con \xc3\xa9xito!</h1>
+    <p>Tu correo ha sido confirmado correctamente. Ya puedes iniciar sesi\xc3\xb3n en LiveSports y disfrutar de todas las retransmisiones y contenidos oficiales.</p>
+    <a href="/?verified=1" class="btn">\xe2\x9e\x94 Iniciar Sesi\xc3\xb3n en LiveSports</a>
+    <div class="sub">Redirigiendo autom\xc3\xa1ticamente a LiveSports...</div>
+  </div>
+  <script>
+    setTimeout(function() {
+      window.location.href = '/?verified=1';
+    }, 2500);
+  </script>
+</body>
+</html>""")
                 return
 
             # 2. Partidos de mi club (para rol 'club' o 'admin')
@@ -515,9 +634,38 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                             except Exception:
                                 pass
 
+                    # Enviar correo de verificación para cuentas de aficionado
+                    mail_res = None
+                    if role in ("aficionado", "viewer"):
+                        ver_token = new_user.get("verification_token")
+                        if ver_token:
+                            host_header = self.headers.get("Host", "localhost:5000")
+                            is_https = self.headers.get("X-Forwarded-Proto") == "https"
+                            scheme = "https" if is_https else "http"
+                            host_url = f"{scheme}://{host_header}"
+                            try:
+                                mail_res = send_verification_email(
+                                    recipient=new_user["email"],
+                                    token=ver_token,
+                                    user_name=new_user.get("full_name") or new_user.get("username"),
+                                    host_url=host_url
+                                )
+                            except Exception as m_err:
+                                print(f"⚠️ Error al enviar correo de verificación: {m_err}")
+
                     token = create_session(new_user["id"])
+                    resp_payload = {
+                        "success": True, 
+                        "token": token, 
+                        "user": new_user,
+                        "message": "Revisa tu bandeja de entrada para verificar tu cuenta."
+                    }
+                    if mail_res and mail_res.get("simulated"):
+                        resp_payload["verify_url"] = mail_res.get("verify_url")
+                        resp_payload["notice"] = f"Modo simulación: Enlace de verificación: {mail_res.get('verify_url')}"
+
                     self._set_cors_and_json(201)
-                    self.wfile.write(json.dumps({"success": True, "token": token, "user": new_user}, ensure_ascii=False).encode("utf-8"))
+                    self.wfile.write(json.dumps(resp_payload, ensure_ascii=False).encode("utf-8"))
                 except ValueError as err:
                     self._set_cors_and_json(400)
                     self.wfile.write(json.dumps({"error": str(err)}).encode("utf-8"))

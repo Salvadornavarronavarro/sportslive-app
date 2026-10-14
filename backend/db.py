@@ -458,6 +458,23 @@ def _run_init_schema(conn):
             cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;")
             cursor.execute("UPDATE users SET is_admin = 1 WHERE role = 'admin' OR LOWER(email) = 'dragontvsalva@gmail.com';")
             conn.commit()
+        if "is_verified" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0;")
+            conn.commit()
+        if "verification_token" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN verification_token TEXT DEFAULT '';")
+            conn.commit()
+        if "verification_token_expires_at" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN verification_token_expires_at TEXT DEFAULT '';")
+            conn.commit()
+
+        # Asegurar cuentas verificadas predeterminadas
+        cursor.execute("""
+        UPDATE users 
+        SET is_verified = 1 
+        WHERE is_admin = 1 OR role = 'admin' OR LOWER(email) IN ('dragontvsalva@gmail.com', 'dragontvsalva@hotmail.com');
+        """)
+        conn.commit()
 
         # Tabla de clubes y eventos favoritos de los aficionados
         cursor.execute("""
@@ -2003,7 +2020,7 @@ def get_user_by_id(user_id: str):
     try:
         cursor = conn.cursor()
         cursor.execute("""
-        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, created_at, is_admin
+        SELECT id, username, email, role, club_name, full_name, cif, location, is_verified, verification_token, verification_token_expires_at, created_at, is_admin
         FROM users WHERE id = ?
         """, (user_id,))
         row = cursor.fetchone()
@@ -2042,20 +2059,27 @@ def create_user(
 
         user_id = "usr-" + str(uuid.uuid4())[:8]
         p_hash, salt = hash_password(password)
-        now_iso = datetime.datetime.now().isoformat()
+        now_dt = datetime.datetime.now()
+        now_iso = now_dt.isoformat()
 
-        # Determinar verificación inicial: Admin y Club verificado por defecto a 1; aficionado a 0
+        # Determinar verificación inicial: Admin y Club verificado por defecto a 1; aficionado a 0 con token
         if is_verified is None:
             if role in ("admin", "club"):
                 is_verified = 1
+                ver_token = ""
+                ver_expires = ""
             else:
                 is_verified = 0
+                ver_token = secrets.token_urlsafe(32)
+                ver_expires = (now_dt + datetime.timedelta(hours=48)).isoformat()
         else:
             is_verified = 1 if is_verified else 0
+            ver_token = "" if is_verified else secrets.token_urlsafe(32)
+            ver_expires = "" if is_verified else (now_dt + datetime.timedelta(hours=48)).isoformat()
 
         cursor.execute("""
-        INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, username, email, password_hash, salt, role, club_name, full_name, cif, location, is_verified, verification_token, verification_token_expires_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             clean_user,
@@ -2068,10 +2092,15 @@ def create_user(
             (cif or "").strip(),
             (location or "").strip(),
             is_verified,
+            ver_token,
+            ver_expires,
             now_iso
         ))
         conn.commit()
-        return get_user_by_id(user_id)
+        created_user = get_user_by_id(user_id)
+        if created_user and ver_token:
+            created_user["verification_token"] = ver_token
+        return created_user
     finally:
         conn.close()
 
@@ -3783,6 +3812,94 @@ def sync_and_reset_credentials() -> dict:
         }
     finally:
         conn.close()
+
+
+# ==========================================================
+# VERIFICACIÓN DE CORREO ELECTRÓNICO DE USUARIOS
+# ==========================================================
+
+def generate_verification_token(email_or_user_id: str) -> dict | None:
+    """
+    Genera y almacena un token criptográficamente seguro para verificar la cuenta.
+    Devuelve los datos del usuario y token o None si la cuenta no existe.
+    """
+    if not email_or_user_id:
+        return None
+    clean = str(email_or_user_id).strip().lower()
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT id, username, email, full_name, is_verified 
+        FROM users 
+        WHERE id = ? OR LOWER(email) = ? OR LOWER(username) = ?
+        """, (clean, clean, clean))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        user = dict(row)
+        token = secrets.token_urlsafe(32)
+        now_dt = datetime.datetime.now()
+        expires_at = (now_dt + datetime.timedelta(hours=48)).isoformat()
+        cursor.execute("""
+        UPDATE users 
+        SET verification_token = ?, verification_token_expires_at = ? 
+        WHERE id = ?
+        """, (token, expires_at, user["id"]))
+        conn.commit()
+        return {
+            "user_id": user["id"],
+            "email": user["email"],
+            "username": user["username"],
+            "full_name": user["full_name"],
+            "token": token,
+            "expires_at": expires_at
+        }
+    finally:
+        conn.close()
+
+
+def verify_user_email(token: str) -> tuple[bool, str, dict | None]:
+    """
+    Valida el token de verificación de un usuario, actualiza is_verified = 1 e invalida el token.
+    Devuelve (éxito, mensaje, datos_usuario).
+    """
+    if not token or not token.strip():
+        return False, "Token de verificación no proporcionado.", None
+    clean_token = token.strip()
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT id, username, email, full_name, role, is_verified, verification_token_expires_at
+        FROM users
+        WHERE verification_token = ?
+        """, (clean_token,))
+        row = cursor.fetchone()
+        if not row:
+            return False, "El enlace de verificación no es válido o ya ha sido utilizado.", None
+
+        user = dict(row)
+        expires_at_str = user.get("verification_token_expires_at") or ""
+        if expires_at_str:
+            try:
+                expires_at = datetime.datetime.fromisoformat(expires_at_str)
+                if datetime.datetime.now() > expires_at:
+                    return False, "El enlace de verificación ha caducado. Solicita un nuevo correo de activación.", user
+            except Exception:
+                pass
+
+        # Actualizar estado de verificación e invalidar token de un solo uso
+        cursor.execute("""
+        UPDATE users 
+        SET is_verified = 1, verification_token = '', verification_token_expires_at = '' 
+        WHERE id = ?
+        """, (user["id"],))
+        conn.commit()
+        return True, "¡Cuenta verificada con éxito! Ya puedes iniciar sesión.", user
+    finally:
+        conn.close()
+
 
 
 
