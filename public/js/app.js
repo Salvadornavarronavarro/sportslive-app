@@ -5569,7 +5569,77 @@ async function initAuthSession() {
   }
 }
 
+function renderStudioTopUserZone() {
+  const topZone = document.getElementById('studio-top-user-zone');
+  if (!topZone) return;
+
+  const authenticated = isLiveSportsAuthenticated();
+  if (!authenticated) {
+    topZone.innerHTML = `
+      <span class="studio-status-indicator offline" title="Modo Invitado"></span>
+      <span class="studio-status-text">Invitado</span>
+      <button type="button" class="studio-btn-auth" onclick="openAuthModal('login')" title="Iniciar sesión o registrarse en LiveSports">
+        <span>Acceder</span>
+      </button>
+    `;
+    return;
+  }
+
+  const u = getLiveSportsUser() || (typeof state !== 'undefined' ? state.currentUser : null);
+  const isUserAdmin = Boolean(u && (u.role === 'admin' || u.is_admin || u.email === 'dragontvsalva@gmail.com'));
+  const role = isUserAdmin ? 'admin' : (u ? u.role : 'aficionado');
+  const rawFullName = (u && (u.full_name || u.username || (u.email ? u.email.split('@')[0] : 'Usuario')) || 'Usuario').trim();
+  const firstName = escapeHtml(rawFullName.split(/\s+/)[0]);
+  const fullDisplayName = escapeHtml(rawFullName);
+
+  let rolePill = '';
+  let adminBtn = '';
+  if (role === 'admin') {
+    rolePill = '<span class="studio-role-pill role-admin">👑 Admin</span>';
+    adminBtn = '<button type="button" class="studio-btn-admin" onclick="openAdminModal(\'matches\')" title="Abrir Panel de Control">⚙️ Panel</button>';
+  } else if (role === 'club') {
+    rolePill = '<span class="studio-role-pill role-club">🛡️ Club</span>';
+  } else {
+    rolePill = '<span class="studio-role-pill role-viewer">👤 Aficionado</span>';
+  }
+
+  topZone.innerHTML = `
+    <span class="studio-status-indicator online" title="Sesión activa permanente (30 días)"></span>
+    <span class="studio-status-text">Conectado</span>
+    ${rolePill}
+    <span class="studio-user-name" title="${fullDisplayName}">${firstName}</span>
+    ${adminBtn}
+    <button type="button" class="studio-btn-logout" onclick="logout()" title="Cerrar sesión activa de forma permanente">
+      <span>Salir</span>
+    </button>
+  `;
+}
+window.renderStudioTopUserZone = renderStudioTopUserZone;
+
+function handleAdminHeaderClick(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  if (typeof closeAllCapsuleDropdowns === 'function') closeAllCapsuleDropdowns();
+  if (typeof closeMobileNav === 'function') closeMobileNav();
+
+  const u = getLiveSportsUser() || (typeof state !== 'undefined' ? state.currentUser : null);
+  const isUserAdmin = Boolean(u && (u.role === 'admin' || u.is_admin || u.email === 'dragontvsalva@gmail.com'));
+
+  if (isUserAdmin) {
+    if (typeof openAdminModal === 'function') {
+      openAdminModal('matches');
+    }
+  } else {
+    if (typeof openAdminLoginModal === 'function') {
+      openAdminLoginModal();
+    } else if (typeof openAuthModal === 'function') {
+      openAuthModal('login');
+    }
+  }
+}
+window.handleAdminHeaderClick = handleAdminHeaderClick;
+
 function renderUserHeader() {
+  renderStudioTopUserZone();
   const container = document.getElementById('user-header-zone');
   const broadcastBtn = document.getElementById('btn-header-broadcast');
   if (!container) return;

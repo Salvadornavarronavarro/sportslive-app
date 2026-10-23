@@ -74,11 +74,282 @@ body {
   flex-direction: column;
 }
 
+/* ==========================================================
+   ALICANTE PARADISE STUDIO TOP BAR
+   ========================================================== */
+.studio-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1005;
+  width: 100%;
+  height: 38px;
+  background: #090d16;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.studio-top-container {
+  width: 100%;
+  max-width: 100vw;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 max(1.25rem, env(safe-area-inset-left, 0px)) 0 max(1.25rem, env(safe-area-inset-right, 0px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.studio-top-left-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.studio-top-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-decoration: none;
+  color: #f1f5f9;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.studio-top-brand:hover {
+  opacity: 0.85;
+}
+
+.studio-brand-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.studio-brand-text {
+  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: 'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif;
+}
+
+.studio-top-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.studio-social-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.studio-social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.studio-social-btn:hover {
+  transform: translateY(-1px);
+}
+
+.studio-social-btn.social-facebook:hover {
+  background: #1877F2;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(24, 119, 242, 0.4);
+}
+
+.studio-social-btn.social-tiktok:hover {
+  background: #fe2c55;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(254, 44, 85, 0.4);
+}
+
+.studio-social-btn.social-telegram:hover {
+  background: #24A1DE;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(36, 161, 222, 0.4);
+}
+
+.studio-social-btn.social-email:hover {
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
+}
+
+.studio-top-user-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.studio-status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.studio-status-indicator.online {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.studio-status-indicator.offline {
+  background: #64748b;
+}
+
+.studio-status-text {
+  font-weight: 600;
+  color: #94a3b8;
+  font-size: 0.74rem;
+}
+
+.studio-status-indicator.online + .studio-status-text {
+  color: #34d399;
+}
+
+.studio-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.studio-role-pill.role-admin {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.studio-role-pill.role-club {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.studio-role-pill.role-viewer {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.studio-user-name {
+  font-weight: 700;
+  color: #f1f5f9;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-btn-auth,
+.studio-btn-logout,
+.studio-btn-admin {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-btn-auth:hover {
+  background: #38bdf8;
+  color: #0f172a;
+  border-color: #38bdf8;
+}
+
+.studio-btn-logout:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.studio-btn-admin:hover {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+/* BOTÓN ADMIN EN LA NAVBAR DE LIVESPORTS */
+.btn-admin-capsule {
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fbbf24 !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.btn-admin-capsule:hover {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: #fbbf24 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.3) !important;
+}
+
+.capsule-icon-admin {
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .studio-top-brand .studio-brand-text {
+    display: none;
+  }
+  .studio-top-left-group {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 440px) {
+  .studio-status-text {
+    display: none;
+  }
+  .studio-user-name {
+    max-width: 80px;
+  }
+}
+
 /* ----------------- Header & Navbar ----------------- */
 .app-header,
 .navbar-header {
   position: sticky;
-  top: 0;
+  top: 38px;
   z-index: 1000;
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(14px);
@@ -2729,7 +3000,7 @@ iframe#main-player-iframe {
   .capsule-nav-group {
     display: none !important;
     position: fixed !important;
-    top: 60px !important;
+    top: 98px !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
@@ -2740,7 +3011,7 @@ iframe#main-player-iframe {
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85) !important;
     padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) calc(2rem + env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px)) !important;
     box-sizing: border-box !important;
-    max-height: calc(100dvh - 60px) !important;
+    max-height: calc(100dvh - 98px) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     z-index: 1002 !important;
@@ -2899,12 +3170,12 @@ iframe#main-player-iframe {
   .navbar-header {
     height: 60px;
     position: sticky;
-    top: 0;
+    top: 38px;
     z-index: 1000;
   }
 
   .main-content {
-    min-height: calc(100dvh - 60px);
+    min-height: calc(100dvh - 98px);
     padding: 1rem max(0.75rem, env(safe-area-inset-left, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) max(0.75rem, env(safe-area-inset-right, 0px));
     width: 100%;
     max-width: 100%;

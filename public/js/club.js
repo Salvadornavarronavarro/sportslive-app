@@ -307,7 +307,53 @@ async function loadCurrentUser() {
   }
 }
 
+function renderStudioTopUserZone(user) {
+  const topZone = document.getElementById('studio-top-user-zone');
+  if (!topZone) return;
+
+  if (!user) {
+    topZone.innerHTML = `
+      <span class="studio-status-indicator offline" title="Modo Invitado"></span>
+      <span class="studio-status-text">Invitado</span>
+      <button type="button" class="studio-btn-auth" onclick="window.location.href='index.html'" title="Acceder a tu cuenta en LiveSports">
+        <span>Acceder</span>
+      </button>
+    `;
+    return;
+  }
+
+  const isUserAdmin = Boolean(user && (user.role === 'admin' || user.is_admin || user.email === 'dragontvsalva@gmail.com'));
+  const role = isUserAdmin ? 'admin' : (user ? user.role : 'aficionado');
+  const rawFullName = (user && (user.full_name || user.username || (user.email ? user.email.split('@')[0] : 'Usuario')) || 'Usuario').trim();
+  const firstName = escapeHtml(rawFullName.split(/\s+/)[0]);
+  const fullDisplayName = escapeHtml(rawFullName);
+
+  let rolePill = '';
+  let adminBtn = '';
+  if (role === 'admin') {
+    rolePill = '<span class="studio-role-pill role-admin">👑 Admin</span>';
+    adminBtn = '<button type="button" class="studio-btn-admin" onclick="window.location.href=\'/?open_admin=1\'" title="Abrir Panel de Control">⚙️ Panel</button>';
+  } else if (role === 'club') {
+    rolePill = '<span class="studio-role-pill role-club">🛡️ Club</span>';
+  } else {
+    rolePill = '<span class="studio-role-pill role-viewer">👤 Aficionado</span>';
+  }
+
+  topZone.innerHTML = `
+    <span class="studio-status-indicator online" title="Sesión activa permanente (30 días)"></span>
+    <span class="studio-status-text">Conectado</span>
+    ${rolePill}
+    <span class="studio-user-name" title="${fullDisplayName}">${firstName}</span>
+    ${adminBtn}
+    <button type="button" class="studio-btn-logout" onclick="handleLogout()" title="Cerrar sesión activa de forma permanente">
+      <span>Salir</span>
+    </button>
+  `;
+}
+window.renderStudioTopUserZone = renderStudioTopUserZone;
+
 function renderUserHeader(user) {
+  renderStudioTopUserZone(user);
   const zone = document.getElementById('user-header-zone');
   if (!zone) return;
   if (user) {

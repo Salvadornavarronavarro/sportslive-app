@@ -13,6 +13,55 @@
 </head>
 <body class="dark-theme">
 
+  <!-- ==================== STUDIO TOP BAR (ALICANTE PARADISE STUDIO) ==================== -->
+  <div class="studio-top-bar" id="studio-top-bar">
+    <div class="studio-top-container">
+      
+      <!-- Lado Izquierdo: Logotipo oficial de Alicante Paradise Studio + Branding y Redes Sociales -->
+      <div class="studio-top-left-group">
+        <a href="https://alicanteparadisestudios.com" target="_blank" rel="noopener noreferrer" class="studio-top-brand" title="Alicante Paradise Studio - Producción Audiovisual Oficial">
+          <img src="alicante-paradise-studio.png" alt="Alicante Paradise Studio" class="studio-brand-logo" width="22" height="22">
+          <span class="studio-brand-text">ALICANTE PARADISE STUDIO</span>
+        </a>
+
+        <div class="studio-top-divider" aria-hidden="true"></div>
+
+        <!-- Iconos Sociales Directos: Facebook, TikTok, Telegram, Email -->
+        <div class="studio-social-group" role="navigation" aria-label="Redes Oficiales Alicante Paradise Studio">
+          <!-- Facebook -->
+          <a href="https://www.facebook.com/alicanteparadisestudios" target="_blank" rel="noopener noreferrer" class="studio-social-btn social-facebook" title="Facebook - Alicante Paradise Studios" aria-label="Facebook">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+
+          <!-- TikTok -->
+          <a href="https://www.tiktok.com/@alicante.paradise.studio" target="_blank" rel="noopener noreferrer" class="studio-social-btn social-tiktok" title="TikTok - @alicante.paradise.studio" aria-label="TikTok">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.63c.34 0 .66.06.96.17V8.92a6.34 6.34 0 0 0-.96-.07A6.33 6.33 0 0 0 3.12 15.2 6.33 6.33 0 0 0 9.45 21.5a6.33 6.33 0 0 0 6.33-6.33V8.89a8.18 8.18 0 0 0 4.79 1.54V6.99c-.33 0-.66-.1-.98-.3z"/></svg>
+          </a>
+
+          <!-- Telegram -->
+          <a href="https://t.me/alicanteparadisestudios" target="_blank" rel="noopener noreferrer" class="studio-social-btn social-telegram" title="Canal Oficial de Telegram" aria-label="Telegram">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8l-1.9 8.95c-.14.64-.52.79-1.05.49l-2.9-2.14-1.4 1.35c-.15.15-.28.28-.58.28l.21-2.95 5.37-4.85c.23-.21-.05-.32-.36-.12l-6.64 4.18-2.86-.89c-.62-.19-.63-.62.13-.92l11.18-4.31c.52-.19.97.13.8.91z"/></svg>
+          </a>
+
+          <!-- Email -->
+          <a href="mailto:alicanteparadisestudios@gmail.com" class="studio-social-btn social-email" title="Email Oficial - alicanteparadisestudios@gmail.com" aria-label="Email">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Lado Derecho: Estado de Sesión Persistente, Usuario, Rol y Controles -->
+      <div class="studio-top-user-zone" id="studio-top-user-zone">
+        <span class="studio-status-indicator offline" title="Modo Invitado"></span>
+        <span class="studio-status-text">Invitado</span>
+        <button type="button" class="studio-btn-auth" onclick="window.location.href='index.html'" title="Acceder a tu cuenta">
+          <span>Acceder</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ==================== BARRA DE NAVEGACIÓN SUPERIOR ==================== -->
   <header class="navbar-header" id="navbar-header">
     <div class="nav-container">
@@ -36,6 +85,11 @@
           <span class="capsule-icon-sponsor">💼</span>
           <span class="capsule-btn-text">ANÚNCIATE</span>
         </button>
+
+        <a href="/?open_admin=1" class="capsule-btn btn-admin-capsule" id="btn-header-admin" title="Acceso al Panel de Administración">
+          <span class="capsule-icon-admin">⚙️</span>
+          <span class="capsule-btn-text">ADMIN</span>
+        </a>
 
         <!-- Zona de usuario / autenticación -->
         <div class="header-right-zone" id="user-header-zone">
