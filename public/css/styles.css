@@ -75,7 +75,7 @@ body {
 }
 
 /* ==========================================================
-   ALICANTE PARADISE STUDIO TOP BAR
+   ALICANTE PARADISE STUDIO TOP BAR - STRICT SINGLE-LINE HORIZONTAL FLEX
    ========================================================== */
 .studio-top-bar {
   position: sticky;
@@ -83,14 +83,19 @@ body {
   z-index: 1005;
   width: 100%;
   height: 38px;
+  min-height: 38px;
+  max-height: 38px;
   background: #090d16;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
+  overflow: hidden !important;
+  white-space: nowrap !important;
 }
 
 .studio-top-container {
@@ -99,22 +104,35 @@ body {
   height: 100%;
   margin: 0 auto;
   padding: 0 max(1.25rem, env(safe-area-inset-left, 0px)) 0 max(1.25rem, env(safe-area-inset-right, 0px));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
   box-sizing: border-box;
+  overflow: hidden !important;
+  gap: 0.75rem;
 }
 
-.studio-top-left-group {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+/* 1. Left section: Alicante Paradise Studio logo + brand name side by side horizontally */
+.studio-top-left-section {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  gap: 0.5rem;
   min-width: 0;
 }
 
 .studio-top-brand {
-  display: inline-flex;
-  align-items: center;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
   gap: 0.45rem;
   text-decoration: none;
   color: #f1f5f9;
@@ -122,7 +140,7 @@ body {
   font-weight: 800;
   letter-spacing: 0.04em;
   transition: opacity 0.2s ease;
-  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .studio-top-brand:hover {
@@ -132,9 +150,12 @@ body {
 .studio-brand-logo {
   width: 22px;
   height: 22px;
+  min-width: 22px;
+  min-height: 22px;
   object-fit: contain;
   border-radius: 4px;
   flex-shrink: 0;
+  display: block;
 }
 
 .studio-brand-text {
@@ -142,32 +163,61 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-family: 'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif;
+  white-space: nowrap !important;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* 2. Middle section: Subtle vertical divider separator + social media icons horizontally */
+.studio-top-middle-section {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .studio-top-divider {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.15);
+  min-height: 16px;
+  background: rgba(255, 255, 255, 0.18);
   flex-shrink: 0;
+  display: inline-block;
 }
 
 .studio-social-group {
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
   gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 .studio-social-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: 26px;
   height: 26px;
+  min-width: 26px;
+  min-height: 26px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.05);
   color: #94a3b8;
   text-decoration: none;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.studio-social-btn svg {
+  display: block;
   flex-shrink: 0;
 }
 
@@ -199,18 +249,27 @@ body {
   box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
 }
 
-.studio-top-user-zone {
-  display: flex;
-  align-items: center;
+/* 3. Right section: User session status / login controls aligned to the far right */
+.studio-top-user-zone,
+.studio-top-right-section {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
   gap: 0.55rem;
   font-size: 0.76rem;
   color: #94a3b8;
-  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .studio-status-indicator {
   width: 8px;
   height: 8px;
+  min-width: 8px;
+  min-height: 8px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
@@ -229,6 +288,8 @@ body {
   font-weight: 600;
   color: #94a3b8;
   font-size: 0.74rem;
+  white-space: nowrap !important;
+  flex-shrink: 0;
 }
 
 .studio-status-indicator.online + .studio-status-text {
@@ -236,8 +297,9 @@ body {
 }
 
 .studio-role-pill {
-  display: inline-flex;
-  align-items: center;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   gap: 3px;
   padding: 2px 7px;
   border-radius: 9999px;
@@ -245,6 +307,8 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  white-space: nowrap !important;
+  flex-shrink: 0;
 }
 
 .studio-role-pill.role-admin {
@@ -271,7 +335,9 @@ body {
   max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  display: inline-block;
+  flex-shrink: 1;
 }
 
 .studio-btn-auth,
@@ -286,9 +352,12 @@ body {
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.18s ease;
-  display: inline-flex;
-  align-items: center;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   gap: 4px;
+  white-space: nowrap !important;
+  flex-shrink: 0;
 }
 
 .studio-btn-auth:hover {
@@ -327,21 +396,28 @@ body {
   font-size: 0.95rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 680px) {
   .studio-top-brand .studio-brand-text {
-    display: none;
+    display: none !important;
   }
-  .studio-top-left-group {
-    gap: 0.5rem;
+  .studio-top-left-section {
+    gap: 0.35rem;
   }
 }
 
 @media (max-width: 440px) {
   .studio-status-text {
-    display: none;
+    display: none !important;
   }
   .studio-user-name {
-    max-width: 80px;
+    max-width: 70px;
+  }
+  .studio-top-container {
+    padding: 0 0.5rem;
+    gap: 0.4rem;
+  }
+  .studio-top-middle-section {
+    gap: 0.35rem;
   }
 }
 

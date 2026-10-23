@@ -17,17 +17,18 @@
   <div class="studio-top-bar" id="studio-top-bar">
     <div class="studio-top-container">
       
-      <!-- Lado Izquierdo: Logotipo oficial de Alicante Paradise Studio + Branding y Redes Sociales -->
-      <div class="studio-top-left-group">
+      <!-- 1. Left section: Alicante Paradise Studio logo + brand name side by side horizontally -->
+      <div class="studio-top-left-section">
         <a href="https://alicanteparadisestudios.com" target="_blank" rel="noopener noreferrer" class="studio-top-brand" title="Alicante Paradise Studio - Producción Audiovisual Oficial">
           <img src="alicante-paradise-studio.png" alt="Alicante Paradise Studio" class="studio-brand-logo" width="22" height="22">
           <span class="studio-brand-text">ALICANTE PARADISE STUDIO</span>
         </a>
+      </div>
 
+      <!-- 2. Middle section: Subtle vertical divider separator + social media icons horizontally in a single row -->
+      <div class="studio-top-middle-section" role="navigation" aria-label="Redes Oficiales Alicante Paradise Studio">
         <div class="studio-top-divider" aria-hidden="true"></div>
-
-        <!-- Iconos Sociales Directos: Facebook, TikTok, Telegram, Email -->
-        <div class="studio-social-group" role="navigation" aria-label="Redes Oficiales Alicante Paradise Studio">
+        <div class="studio-social-group">
           <!-- Facebook -->
           <a href="https://www.facebook.com/alicanteparadisestudios" target="_blank" rel="noopener noreferrer" class="studio-social-btn social-facebook" title="Facebook - Alicante Paradise Studios" aria-label="Facebook">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -50,8 +51,8 @@
         </div>
       </div>
 
-      <!-- Lado Derecho: Estado de Sesión Persistente, Usuario, Rol y Controles -->
-      <div class="studio-top-user-zone" id="studio-top-user-zone">
+      <!-- 3. Right section: User session status / login controls -->
+      <div class="studio-top-user-zone studio-top-right-section" id="studio-top-user-zone">
         <span class="studio-status-indicator offline" title="Modo Invitado"></span>
         <span class="studio-status-text">Invitado</span>
         <button type="button" class="studio-btn-auth" onclick="window.location.href='index.html'" title="Acceder a tu cuenta">
