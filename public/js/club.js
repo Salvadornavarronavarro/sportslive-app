@@ -28,6 +28,132 @@
   };
 })();
 
+// Funciones de persistencia de sesión universal multiplataforma (localStorage)
+function getStoredClubUserSession() {
+  try {
+    const raw = localStorage.getItem('sportlive_user') ||
+      localStorage.getItem('livesports_current_user') ||
+      localStorage.getItem('sportslive_current_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u && (u.id || u.username || u.email)) {
+        return u;
+      }
+    }
+    const email = localStorage.getItem('sportlive_user_email');
+    if (email) {
+      const role = localStorage.getItem('sportlive_user_role') || 'aficionado';
+      const id = localStorage.getItem('sportlive_user_id') || ('usr-' + email.split('@')[0]);
+      return {
+        id,
+        email,
+        username: email.split('@')[0],
+        full_name: email.split('@')[0],
+        role,
+        is_admin: role === 'admin' || email === 'dragontvsalva@gmail.com'
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+function persistClubUserSession(user, token, favoritesList = null) {
+  if (!user || (!user.id && !user.username && !user.email)) return;
+
+  const email = (user.email || '').trim().toLowerCase();
+  const role = user.role || 'aficionado';
+  const id = user.id || ('usr-' + (user.username || email.split('@')[0] || Date.now()));
+
+  const cleanUser = Object.assign({}, user, { id, email, role });
+  if (favoritesList && Array.isArray(favoritesList)) {
+    cleanUser.favorite_clubs = favoritesList;
+  }
+
+  if (typeof clubState !== 'undefined' && clubState) {
+    clubState.currentUser = cleanUser;
+  }
+
+  try {
+    const userJson = JSON.stringify(cleanUser);
+    localStorage.setItem('sportlive_user', userJson);
+    localStorage.setItem('sportlive_user_email', email);
+    localStorage.setItem('sportlive_user_role', role);
+    localStorage.setItem('sportlive_user_id', id);
+    localStorage.setItem('sportlive_session_locked', 'true');
+    localStorage.setItem('livesports_current_user', userJson);
+    localStorage.setItem('sportslive_current_user', userJson);
+
+    const actualToken = token || localStorage.getItem('sportlive_auth_token');
+    if (actualToken) {
+      localStorage.setItem('sportlive_auth_token', actualToken);
+      localStorage.setItem('livesports_auth_token', actualToken);
+      localStorage.setItem('sportslive_auth_token', actualToken);
+      localStorage.setItem('talentolive_auth_token', actualToken);
+    }
+
+    const clubsList = cleanUser.favorite_clubs;
+    if (Array.isArray(clubsList)) {
+      const clubsJson = JSON.stringify(clubsList);
+      localStorage.setItem('favorite_clubs_' + id, clubsJson);
+      localStorage.setItem('sportlive_favorite_clubs', clubsJson);
+      localStorage.setItem('livesports_favorite_clubs', clubsJson);
+      localStorage.setItem('sportslive_favorite_clubs', clubsJson);
+      localStorage.setItem('talentolive_favorite_clubs', clubsJson);
+    }
+  } catch (err) {
+    console.warn('Advertencia guardando sesión en localStorage (club):', err);
+  }
+}
+
+function clearAllUserSessionLocalStorage() {
+  const keysToRemove = [
+    'sportlive_auth_token',
+    'sportlive_user',
+    'sportlive_user_email',
+    'sportlive_user_role',
+    'sportlive_user_id',
+    'sportlive_session_locked',
+    'talentolive_auth_token',
+    'talentolive_token',
+    'grada_auth_token',
+    'livesports_auth_token',
+    'livesports_token',
+    'livesports_current_user',
+    'sportslive_auth_token',
+    'sportslive_token',
+    'sportslive_current_user',
+    'livesports_favorite_clubs',
+    'sportslive_favorite_clubs',
+    'sportlive_favorite_clubs',
+    'talentolive_favorite_clubs',
+    'livesports_favorites',
+    'sportslive_favorites',
+    'talentolive_favorites',
+    'favorite_clubs_guest',
+    'favorites_guest'
+  ];
+
+  try {
+    const rawUser = localStorage.getItem('sportlive_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u && u.id) {
+        keysToRemove.push('favorite_clubs_' + u.id);
+        keysToRemove.push('favorites_' + u.id);
+      }
+    }
+    const uid = localStorage.getItem('sportlive_user_id');
+    if (uid) {
+      keysToRemove.push('favorite_clubs_' + uid);
+      keysToRemove.push('favorites_' + uid);
+    }
+  } catch (_) {}
+
+  keysToRemove.forEach(k => {
+    try { localStorage.removeItem(k); } catch (_) {}
+  });
+}
+
 const clubState = {
   currentClub: null,
   activeVideo: null,
@@ -37,12 +163,7 @@ const clubState = {
   matchMessages: [],
   communityPollTimer: null,
   matchPollTimer: null,
-  currentUser: JSON.parse(
-    localStorage.getItem('sportlive_user') ||
-    localStorage.getItem('livesports_current_user') ||
-    localStorage.getItem('sportslive_current_user') ||
-    'null'
-  )
+  currentUser: getStoredClubUserSession()
 };
 
 // Palabras ofensivas comunes para moderación instantánea en cliente
@@ -146,18 +267,14 @@ function initClubCapsuleDropdowns() {
 }
 
 async function loadCurrentUser() {
-  const storedUserRaw = localStorage.getItem('sportlive_user') ||
-    localStorage.getItem('livesports_current_user') ||
-    localStorage.getItem('sportslive_current_user');
-  if (storedUserRaw) {
-    try {
-      const u = JSON.parse(storedUserRaw);
-      if (u) {
-        clubState.currentUser = u;
-        renderUserHeader(u);
-      }
-    } catch (_) {}
+  // 1. Restaurar de forma inmediata la sesión desde localStorage (bypass de cookies temporales)
+  const storedUser = getStoredClubUserSession();
+  if (storedUser) {
+    clubState.currentUser = storedUser;
+    renderUserHeader(storedUser);
   }
+
+  // 2. Sincronizar en segundo plano con /api/auth/me sin destruir la sesión local si cookies expiran
   try {
     const token = localStorage.getItem('sportlive_auth_token') ||
       localStorage.getItem('livesports_token') ||
@@ -169,25 +286,23 @@ async function loadCurrentUser() {
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
-        clubState.currentUser = data.user;
         const validToken = data.auth_token || data.token || token;
-        if (validToken) {
-          localStorage.setItem('sportlive_auth_token', validToken);
-          localStorage.setItem('livesports_auth_token', validToken);
-        }
-        localStorage.setItem('sportlive_user', JSON.stringify(data.user));
-        localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-        localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
+        persistClubUserSession(data.user, validToken, data.user.favorite_clubs);
         renderUserHeader(data.user);
       } else if (data.authenticated === false) {
-        clubState.currentUser = null;
-        renderUserHeader(null);
+        // PREVENCIÓN ESTRICTA DE DESTRUCCIÓN DE SESIÓN:
+        // Mantener la sesión activa en localStorage en todos los dispositivos
+        if (storedUser) {
+          clubState.currentUser = storedUser;
+          renderUserHeader(storedUser);
+        }
       }
     }
   } catch (err) {
-    console.warn('Error fetching user auth:', err);
-    if (!clubState.currentUser) {
-      renderUserHeader(null);
+    console.warn('Error fetching user auth en club:', err);
+    if (storedUser) {
+      clubState.currentUser = storedUser;
+      renderUserHeader(storedUser);
     }
   }
 }
@@ -286,12 +401,15 @@ function renderUserHeader(user) {
 
 async function handleLogout() {
   try {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    clubState.currentUser = null;
-    window.location.reload();
-  } catch (e) {
-    window.location.reload();
-  }
+    const token = localStorage.getItem('sportlive_auth_token') || '';
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    fetch('/api/auth/logout', { method: 'POST', headers, credentials: 'include' }).catch(() => {});
+  } catch (_) {}
+
+  clubState.currentUser = null;
+  clearAllUserSessionLocalStorage();
+  window.location.href = 'index.html';
 }
 
 // Carga del catálogo completo de clubes para el selector
@@ -410,11 +528,24 @@ function renderClubHeader(club) {
 function isClubFollowed(clubName) {
   if (!clubName) return false;
   try {
-    const list = JSON.parse(localStorage.getItem('livesports_favorite_clubs') || localStorage.getItem('sportslive_favorite_clubs') || localStorage.getItem('talentolive_favorite_clubs') || '[]');
-    return list.includes(clubName);
+    const list = JSON.parse(
+      localStorage.getItem('sportlive_favorite_clubs') ||
+      localStorage.getItem('livesports_favorite_clubs') ||
+      localStorage.getItem('sportslive_favorite_clubs') ||
+      localStorage.getItem('talentolive_favorite_clubs') ||
+      '[]'
+    );
+    if (list.includes(clubName)) return true;
+    if (clubState.currentUser && (clubState.currentUser.id || clubState.currentUser.email)) {
+      const uid = clubState.currentUser.id || ('usr-' + (clubState.currentUser.username || clubState.currentUser.email));
+      const userList = JSON.parse(localStorage.getItem('favorite_clubs_' + uid) || '[]');
+      if (userList.includes(clubName)) return true;
+      if (Array.isArray(clubState.currentUser.favorite_clubs) && clubState.currentUser.favorite_clubs.includes(clubName)) return true;
+    }
   } catch (e) {
     return false;
   }
+  return false;
 }
 
 function updateFollowButtonState() {
@@ -460,11 +591,15 @@ async function toggleFollowCurrentClub() {
     showToast(`¡Ahora sigues a ${clubName}! Recibirás avisos de sus directos`, 'success');
   }
 
+  localStorage.setItem('sportlive_favorite_clubs', JSON.stringify(list));
   localStorage.setItem('livesports_favorite_clubs', JSON.stringify(list));
   localStorage.setItem('sportslive_favorite_clubs', JSON.stringify(list));
   localStorage.setItem('talentolive_favorite_clubs', JSON.stringify(list));
-  if (clubState.currentUser && clubState.currentUser.id) {
-    localStorage.setItem('favorite_clubs_' + clubState.currentUser.id, JSON.stringify(list));
+  if (clubState.currentUser && (clubState.currentUser.id || clubState.currentUser.email)) {
+    const uid = clubState.currentUser.id || ('usr-' + (clubState.currentUser.username || clubState.currentUser.email));
+    localStorage.setItem('favorite_clubs_' + uid, JSON.stringify(list));
+    clubState.currentUser.favorite_clubs = list;
+    persistClubUserSession(clubState.currentUser, localStorage.getItem('sportlive_auth_token'), list);
   }
   updateFollowButtonState();
 

@@ -1947,7 +1947,7 @@ def authenticate_user(identity: str, password: str):
     finally:
         conn.close()
 
-def create_session(user_id: str, days: int = 30) -> str:
+def create_session(user_id: str, days: int = 365) -> str:
     conn = get_db()
     try:
         cursor = conn.cursor()

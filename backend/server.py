@@ -95,7 +95,7 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
                 f"session_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax{secure_flag}"
             )
         elif session_token:
-            max_age = 30 * 24 * 3600  # 30 días = 2,592,000 segundos
+            max_age = 365 * 24 * 3600  # 365 días persistentes = 31,536,000 segundos
             expires_gmt = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + max_age))
             cookie_val = f"session_token={session_token}; Path=/; Max-Age={max_age}; Expires={expires_gmt}; SameSite=Lax{secure_flag}"
             self.send_header("Set-Cookie", cookie_val)
@@ -289,46 +289,69 @@ class LiveSportsHandler(SimpleHTTPRequestHandler):
 </html>""".encode("utf-8"))
                     return
 
+                session_tok = create_session(user_data["id"])
                 if is_json_request:
-                    self._set_cors_and_json(200)
-                    self.wfile.write(json.dumps({"success": True, "message": "¡Cuenta verificada con éxito! Ya puedes iniciar sesión."}).encode("utf-8"))
+                    self._set_cors_and_json(200, session_token=session_tok)
+                    self.wfile.write(json.dumps({
+                        "success": True,
+                        "message": "¡Cuenta verificada con éxito! Ya puedes iniciar sesión.",
+                        "token": session_tok,
+                        "auth_token": session_tok,
+                        "user": user_data
+                    }, ensure_ascii=False).encode("utf-8"))
                     return
+
+                max_age = 365 * 24 * 3600
+                expires_gmt = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + max_age))
+                is_https = (
+                    self.headers.get("X-Forwarded-Proto") == "https"
+                    or os.environ.get("RENDER") is not None
+                    or os.environ.get("PRODUCTION") is not None
+                    or os.environ.get("ENVIRONMENT") == "production"
+                )
+                secure_flag = "; Secure" if is_https else ""
+                cookie_val = f"session_token={session_tok}; Path=/; Max-Age={max_age}; Expires={expires_gmt}; SameSite=Lax{secure_flag}"
 
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Set-Cookie", cookie_val)
                 self.end_headers()
-                self.wfile.write(b"""<!DOCTYPE html>
+
+                safe_email = urllib.parse.quote(user_data.get("email", ""))
+                redirect_url = f"/?verified=1&auth_token={session_tok}&user_email={safe_email}"
+                html_body = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>\xc2\xa1Cuenta verificada con \xc3\xa9xito! - LiveSports</title>
+  <title>¡Cuenta verificada con éxito! - LiveSports</title>
   <style>
-    body { background: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-    .card { background: #1e293b; border: 1px solid #38bdf8; border-radius: 16px; padding: 40px 32px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(56,189,248,0.25); }
-    .icon { font-size: 52px; margin-bottom: 18px; }
-    h1 { font-size: 22px; margin: 0 0 12px; color: #38bdf8; font-weight: 700; }
-    p { color: #cbd5e1; font-size: 15px; line-height: 1.6; margin: 0 0 28px; }
-    .btn { display: inline-block; background: #0088cc; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 30px; box-shadow: 0 4px 16px rgba(0,136,204,0.4); }
-    .btn:hover { background: #0099e6; }
-    .sub { color: #64748b; font-size: 12px; margin-top: 20px; }
+    body {{ background: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+    .card {{ background: #1e293b; border: 1px solid #38bdf8; border-radius: 16px; padding: 40px 32px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(56,189,248,0.25); }}
+    .icon {{ font-size: 52px; margin-bottom: 18px; }}
+    h1 {{ font-size: 22px; margin: 0 0 12px; color: #38bdf8; font-weight: 700; }}
+    p {{ color: #cbd5e1; font-size: 15px; line-height: 1.6; margin: 0 0 28px; }}
+    .btn {{ display: inline-block; background: #0088cc; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 30px; box-shadow: 0 4px 16px rgba(0,136,204,0.4); }}
+    .btn:hover {{ background: #0099e6; }}
+    .sub {{ color: #64748b; font-size: 12px; margin-top: 20px; }}
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="icon">\xe2\x9c\x85</div>
-    <h1>\xc2\xa1Cuenta verificada con \xc3\xa9xito!</h1>
-    <p>Tu correo ha sido confirmado correctamente. Ya puedes iniciar sesi\xc3\xb3n en LiveSports y disfrutar de todas las retransmisiones y contenidos oficiales.</p>
-    <a href="/?verified=1" class="btn">\xe2\x9e\x94 Iniciar Sesi\xc3\xb3n en LiveSports</a>
-    <div class="sub">Redirigiendo autom\xc3\xa1ticamente a LiveSports...</div>
+    <div class="icon">✅</div>
+    <h1>¡Cuenta verificada con éxito!</h1>
+    <p>Tu correo ha sido confirmado correctamente. Ya puedes acceder directamente a LiveSports.</p>
+    <a href="{redirect_url}" class="btn">➔ Entrar a LiveSports</a>
+    <div class="sub">Redirigiendo automáticamente a LiveSports...</div>
   </div>
   <script>
-    setTimeout(function() {
-      window.location.href = '/?verified=1';
-    }, 2500);
+    setTimeout(function() {{
+      window.location.href = '{redirect_url}';
+    }}, 1800);
   </script>
 </body>
-</html>""")
+</html>"""
+                self.wfile.write(html_body.encode("utf-8"))
                 return
 
             # 2. Partidos de mi club (para rol 'club' o 'admin')

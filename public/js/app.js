@@ -30,6 +30,145 @@
   };
 })();
 
+// Funciones universales de persistencia de sesión multiplataforma (localStorage)
+function getStoredUserSession() {
+  try {
+    const raw = localStorage.getItem('sportlive_user') ||
+      localStorage.getItem('livesports_current_user') ||
+      localStorage.getItem('sportslive_current_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u && (u.id || u.username || u.email)) {
+        return u;
+      }
+    }
+    const email = localStorage.getItem('sportlive_user_email');
+    if (email) {
+      const role = localStorage.getItem('sportlive_user_role') || 'aficionado';
+      const id = localStorage.getItem('sportlive_user_id') || ('usr-' + email.split('@')[0]);
+      return {
+        id,
+        email,
+        username: email.split('@')[0],
+        full_name: email.split('@')[0],
+        role,
+        is_admin: role === 'admin' || email === 'dragontvsalva@gmail.com'
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+window.getStoredUserSession = getStoredUserSession;
+
+function persistUserSession(user, token, favoritesList = null) {
+  if (!user || (!user.id && !user.username && !user.email)) return;
+
+  const email = (user.email || '').trim().toLowerCase();
+  const role = user.role || 'aficionado';
+  const id = user.id || ('usr-' + (user.username || email.split('@')[0] || Date.now()));
+
+  const cleanUser = Object.assign({}, user, { id, email, role });
+  if (favoritesList && Array.isArray(favoritesList)) {
+    cleanUser.favorite_clubs = favoritesList;
+  } else if (!cleanUser.favorite_clubs && typeof state !== 'undefined' && Array.isArray(state.favoriteClubs)) {
+    cleanUser.favorite_clubs = state.favoriteClubs;
+  }
+
+  if (typeof state !== 'undefined' && state) {
+    state.currentUser = cleanUser;
+    if (token) state.token = token;
+  }
+
+  try {
+    const userJson = JSON.stringify(cleanUser);
+    localStorage.setItem('sportlive_user', userJson);
+    localStorage.setItem('sportlive_user_email', email);
+    localStorage.setItem('sportlive_user_role', role);
+    localStorage.setItem('sportlive_user_id', id);
+    localStorage.setItem('sportlive_session_locked', 'true');
+    localStorage.setItem('livesports_current_user', userJson);
+    localStorage.setItem('sportslive_current_user', userJson);
+
+    const actualToken = token || (typeof state !== 'undefined' && state ? state.token : '') || localStorage.getItem('sportlive_auth_token');
+    if (actualToken) {
+      localStorage.setItem('sportlive_auth_token', actualToken);
+      localStorage.setItem('livesports_auth_token', actualToken);
+      localStorage.setItem('sportslive_auth_token', actualToken);
+      localStorage.setItem('talentolive_auth_token', actualToken);
+    }
+
+    const clubsList = cleanUser.favorite_clubs || (typeof state !== 'undefined' && state ? state.favoriteClubs : []) || [];
+    if (Array.isArray(clubsList)) {
+      const clubsJson = JSON.stringify(clubsList);
+      localStorage.setItem('favorite_clubs_' + id, clubsJson);
+      localStorage.setItem('sportlive_favorite_clubs', clubsJson);
+      localStorage.setItem('livesports_favorite_clubs', clubsJson);
+      localStorage.setItem('sportslive_favorite_clubs', clubsJson);
+      localStorage.setItem('talentolive_favorite_clubs', clubsJson);
+    }
+
+    if (typeof state !== 'undefined' && state && Array.isArray(state.favorites)) {
+      const favsJson = JSON.stringify(state.favorites);
+      localStorage.setItem('favorites_' + id, favsJson);
+      localStorage.setItem('sportlive_favorites', favsJson);
+      localStorage.setItem('livesports_favorites', favsJson);
+    }
+  } catch (err) {
+    console.warn('Advertencia guardando sesión persistente en localStorage:', err);
+  }
+}
+window.persistUserSession = persistUserSession;
+
+function clearAllUserSessionLocalStorage() {
+  const keysToRemove = [
+    'sportlive_auth_token',
+    'sportlive_user',
+    'sportlive_user_email',
+    'sportlive_user_role',
+    'sportlive_user_id',
+    'sportlive_session_locked',
+    'talentolive_auth_token',
+    'talentolive_token',
+    'grada_auth_token',
+    'livesports_auth_token',
+    'livesports_token',
+    'livesports_current_user',
+    'sportslive_auth_token',
+    'sportslive_token',
+    'sportslive_current_user',
+    'livesports_favorite_clubs',
+    'sportslive_favorite_clubs',
+    'sportlive_favorite_clubs',
+    'talentolive_favorite_clubs',
+    'livesports_favorites',
+    'sportslive_favorites',
+    'talentolive_favorites',
+    'favorite_clubs_guest',
+    'favorites_guest'
+  ];
+
+  try {
+    const rawUser = localStorage.getItem('sportlive_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u && u.id) {
+        keysToRemove.push('favorite_clubs_' + u.id);
+        keysToRemove.push('favorites_' + u.id);
+      }
+    }
+    const uid = localStorage.getItem('sportlive_user_id');
+    if (uid) {
+      keysToRemove.push('favorite_clubs_' + uid);
+      keysToRemove.push('favorites_' + uid);
+    }
+  } catch (_) {}
+
+  keysToRemove.forEach(k => {
+    try { localStorage.removeItem(k); } catch (_) {}
+  });
+}
+window.clearAllUserSessionLocalStorage = clearAllUserSessionLocalStorage;
+
 // Estado global de la aplicación
 const state = {
   currentTab: 'LIVE', // 'LIVE', 'UPCOMING', 'REPLAY'
@@ -58,12 +197,7 @@ const state = {
   activeClubMode: null, // ID o Nombre del club en modo monográfico exclusivo
   activeClubFilter: null, // Filtro activo por club o monográfico
   activeModalEvent: null,
-  currentUser: JSON.parse(
-    localStorage.getItem('sportlive_user') ||
-    localStorage.getItem('livesports_current_user') ||
-    localStorage.getItem('sportslive_current_user') ||
-    'null'
-  ),
+  currentUser: getStoredUserSession(),
   token: (
     localStorage.getItem('sportlive_auth_token') ||
     localStorage.getItem('livesports_auth_token') ||
@@ -91,25 +225,18 @@ function getLiveSportsUser() {
   if (typeof state !== 'undefined' && state && state.currentUser) {
     return state.currentUser;
   }
-  try {
-    const raw = localStorage.getItem('sportlive_user') ||
-      localStorage.getItem('livesports_current_user') ||
-      localStorage.getItem('sportslive_current_user');
-    if (raw) {
-      const u = JSON.parse(raw);
-      if (u && (u.id || u.username)) {
-        if (typeof state !== 'undefined' && state) state.currentUser = u;
-        return u;
-      }
-    }
-  } catch (_) {}
+  const u = getStoredUserSession();
+  if (u) {
+    if (typeof state !== 'undefined' && state) state.currentUser = u;
+    return u;
+  }
   return null;
 }
 function getSportsLiveUser() { return getLiveSportsUser(); }
 
 function isLiveSportsAuthenticated() {
   const u = getLiveSportsUser();
-  return !!(u && (u.id || u.username) && u.role && u.role !== 'guest');
+  return !!(u && (u.id || u.username || u.email) && u.role && u.role !== 'guest');
 }
 function isSportsLiveAuthenticated() { return isLiveSportsAuthenticated(); }
 
@@ -120,8 +247,9 @@ window.isSportsLiveAuthenticated = isSportsLiveAuthenticated;
 
 function getFavoritesStorageKey(type = 'clubs') {
   const user = getLiveSportsUser();
-  if (user && user.id && user.role !== 'guest') {
-    return (type === 'clubs') ? ('favorite_clubs_' + user.id) : ('favorites_' + user.id);
+  if (user && (user.id || user.email) && user.role !== 'guest') {
+    const uid = user.id || ('usr-' + (user.email || user.username));
+    return (type === 'clubs') ? ('favorite_clubs_' + uid) : ('favorites_' + uid);
   }
   return (type === 'clubs') ? 'favorite_clubs_guest' : 'favorites_guest';
 }
@@ -132,7 +260,7 @@ function loadUserFavorites() {
 
   // Si no hay sesión activa (usuario invitado / no autenticado):
   // El contador debe estar a 0 y no tener clubes ni partidos favoritos guardados
-  if (!authenticated || !user || !user.id) {
+  if (!authenticated || !user || (!user.id && !user.email)) {
     state.favorites = [];
     state.favoriteClubs = [];
     state.favoritesOnlyMode = false;
@@ -159,24 +287,32 @@ function loadUserFavorites() {
     return;
   }
 
+  const userId = user.id || ('usr-' + (user.email || user.username));
+
   // 1. Partidos / Eventos favoritos vinculados al ID de usuario activo
-  const matchesKey = 'favorites_' + user.id;
+  const matchesKey = 'favorites_' + userId;
   try {
-    const rawMatches = localStorage.getItem(matchesKey);
+    const rawMatches = localStorage.getItem(matchesKey) ||
+      localStorage.getItem('sportlive_favorites') ||
+      localStorage.getItem('livesports_favorites');
     state.favorites = rawMatches ? JSON.parse(rawMatches) : [];
     if (!Array.isArray(state.favorites)) state.favorites = [];
   } catch (e) {
     state.favorites = [];
   }
 
-  // 2. Clubes favoritos vinculados al ID de usuario activo
-  const clubsKey = 'favorite_clubs_' + user.id;
-  const clubsLegacyKey = 'favorites_' + user.id;
+  // 2. Clubes favoritos vinculados al ID de usuario activo (con respaldo redundante)
+  const clubsKey = 'favorite_clubs_' + userId;
+  const clubsLegacyKey = 'favorites_' + userId;
   try {
-    const rawClubs = localStorage.getItem(clubsKey) || localStorage.getItem(clubsLegacyKey);
+    const rawClubs = localStorage.getItem(clubsKey) ||
+      localStorage.getItem('sportlive_favorite_clubs') ||
+      localStorage.getItem('livesports_favorite_clubs') ||
+      localStorage.getItem('sportslive_favorite_clubs') ||
+      localStorage.getItem(clubsLegacyKey);
     if (rawClubs) {
       state.favoriteClubs = JSON.parse(rawClubs);
-    } else if (Array.isArray(user.favorite_clubs)) {
+    } else if (Array.isArray(user.favorite_clubs) && user.favorite_clubs.length > 0) {
       state.favoriteClubs = user.favorite_clubs;
     } else {
       state.favoriteClubs = [];
@@ -209,12 +345,16 @@ function loadUserFavorites() {
 
 function saveUserFavorites(type = 'both') {
   const user = getLiveSportsUser();
-  if (!isLiveSportsAuthenticated() || !user || !user.id) return; // En modo invitado no se persisten favoritos
+  if (!isLiveSportsAuthenticated() || !user || (!user.id && !user.email)) return;
+
+  const userId = user.id || ('usr-' + (user.email || user.username));
 
   if (type === 'matches' || type === 'both') {
-    const matchesKey = 'favorites_' + user.id;
+    const matchesKey = 'favorites_' + userId;
     const matchesData = JSON.stringify(state.favorites || []);
     localStorage.setItem(matchesKey, matchesData);
+    localStorage.setItem('sportlive_favorites', matchesData);
+    localStorage.setItem('livesports_favorites', matchesData);
 
     // Persistir eventos favoritos en backend si el usuario tiene sesión activa
     if (state.token) {
@@ -230,12 +370,21 @@ function saveUserFavorites(type = 'both') {
   }
 
   if (type === 'clubs' || type === 'both') {
-    const clubsKey = 'favorite_clubs_' + user.id;
-    const clubsLegacyKey = 'favorites_' + user.id;
+    const clubsKey = 'favorite_clubs_' + userId;
+    const clubsLegacyKey = 'favorites_' + userId;
     const clubsData = JSON.stringify(state.favoriteClubs || []);
 
     localStorage.setItem(clubsKey, clubsData);
     localStorage.setItem(clubsLegacyKey, clubsData);
+    localStorage.setItem('sportlive_favorite_clubs', clubsData);
+    localStorage.setItem('livesports_favorite_clubs', clubsData);
+    localStorage.setItem('sportslive_favorite_clubs', clubsData);
+
+    // Mantener la sesión activa en localStorage permanentemente bloqueada con la lista de favoritos actualizada
+    if (state.currentUser) {
+      state.currentUser.favorite_clubs = state.favoriteClubs || [];
+      persistUserSession(state.currentUser, state.token, state.favoriteClubs);
+    }
 
     // Persistir en backend SQLite / Turso libSQL si el usuario tiene sesión activa
     if (state.token) {
@@ -475,14 +624,12 @@ function getAuthHeaders(includeContentType = true) {
 
 /**
  * Restaura de forma síncrona e inmediata las credenciales y el estado autenticado
- * desde localStorage (retención de sesión de 30 días) al inicializar el DOM.
- * Previene parpadeos de interfaz ("Iniciar Sesión") en iPadOS, iOS y navegadores de escritorio.
+ * desde localStorage al inicializar el DOM (bypass de comprobaciones temporales de cookies).
+ * Garantiza persistencia universal e instantánea en Safari, Chrome, Firefox, Edge en PC, Mac, iPhone, iPad y Android.
  */
 function restorePersistentAuth() {
   try {
-    const rawUser = localStorage.getItem('sportlive_user') ||
-      localStorage.getItem('livesports_current_user') ||
-      localStorage.getItem('sportslive_current_user');
+    const u = getStoredUserSession();
     const token = localStorage.getItem('sportlive_auth_token') ||
       localStorage.getItem('livesports_auth_token') ||
       localStorage.getItem('sportslive_auth_token') ||
@@ -491,18 +638,15 @@ function restorePersistentAuth() {
       localStorage.getItem('talentolive_auth_token') ||
       localStorage.getItem('grada_auth_token') || '';
 
-    if (rawUser && token) {
-      const u = JSON.parse(rawUser);
-      if (u && (u.id || u.username)) {
-        state.currentUser = u;
-        state.token = token;
-        loadUserFavorites();
-        renderUserHeader();
-        updateGuestFloatingBar();
-        updateChatVisibility();
-        updateFilterButtonsVisual();
-        return true;
-      }
+    if (u && (u.id || u.username || u.email)) {
+      state.currentUser = u;
+      if (token) state.token = token;
+      loadUserFavorites();
+      renderUserHeader();
+      updateGuestFloatingBar();
+      updateChatVisibility();
+      updateFilterButtonsVisual();
+      return true;
     }
   } catch (err) {
     console.warn('Advertencia restaurando sesión persistente:', err);
@@ -559,11 +703,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 300);
     }
 
+    // Soporte para autenticación automática tras confirmación de correo (?auth_token=...)
+    const authTokenParam = urlParams.get('auth_token');
+    const userEmailParam = urlParams.get('user_email');
+    if (authTokenParam) {
+      state.token = authTokenParam;
+      localStorage.setItem('sportlive_auth_token', authTokenParam);
+      if (userEmailParam) {
+        localStorage.setItem('sportlive_user_email', decodeURIComponent(userEmailParam));
+      }
+    }
+
     // Soporte para confirmación de cuenta verificada (?verified=1)
     if (urlParams.get('verified') === '1') {
       setTimeout(() => {
-        showToast('¡Cuenta verificada con éxito! Ya puedes iniciar sesión.', 'success');
-        if (typeof openAuthModal === 'function') {
+        showToast('¡Cuenta verificada con éxito! Bienvenido a LiveSports.', 'success');
+        if (!state.currentUser && typeof openAuthModal === 'function') {
           openAuthModal('login');
         }
       }, 350);
@@ -5353,9 +5508,11 @@ async function exportAppToShare() {
    ========================================================== */
 
 async function initAuthSession() {
-  // Consultar /api/auth/me con Authorization: Bearer <token> y credentials: 'include'.
-  // Las credenciales en localStorage (sportlive_auth_token) y las cookies persistentes (30 días)
-  // permiten restaurar la sesión en iPad Safari incluso si Safari recargó o limpió cookies temporales.
+  // Consultar /api/auth/me en segundo plano para sincronizar cambios del servidor.
+  // IMPORTANTE: Si ya existe una sesión válida en localStorage, se preserva y bloquea
+  // de forma universal e ininterrumpida en todos los dispositivos (Safari, Chrome, Firefox,
+  // Edge en PC, Mac, iPhone, iPad y Android).
+  // La sesión NO se destruye si el servidor o cookies temporales devuelven authenticated: false.
   try {
     const res = await fetch('/api/auth/me', {
       headers: getAuthHeaders(false),
@@ -5364,36 +5521,16 @@ async function initAuthSession() {
     if (res.ok) {
       const data = await res.json();
       if (data.authenticated && data.user) {
-        state.currentUser = data.user;
         const validToken = data.auth_token || data.token || state.token;
-        if (validToken) {
-          state.token = validToken;
-          localStorage.setItem('sportlive_auth_token', validToken);
-          localStorage.setItem('talentolive_auth_token', validToken);
-          localStorage.setItem('livesports_auth_token', validToken);
-          localStorage.setItem('sportslive_auth_token', validToken);
-        }
-        localStorage.setItem('sportlive_user', JSON.stringify(data.user));
-        localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-        localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
+        persistUserSession(data.user, validToken, data.user.favorite_clubs);
         loadUserFavorites();
         await syncUserFavorites();
       } else if (data.authenticated === false) {
-        // Solo destruir credenciales locales si el backend confirma explícitamente que la sesión expiró
-        state.currentUser = null;
-        state.token = '';
-        localStorage.removeItem('sportlive_auth_token');
-        localStorage.removeItem('sportlive_user');
-        localStorage.removeItem('talentolive_auth_token');
-        localStorage.removeItem('talentolive_token');
-        localStorage.removeItem('grada_auth_token');
-        localStorage.removeItem('livesports_auth_token');
-        localStorage.removeItem('livesports_token');
-        localStorage.removeItem('livesports_current_user');
-        localStorage.removeItem('sportslive_auth_token');
-        localStorage.removeItem('sportslive_token');
-        localStorage.removeItem('sportslive_current_user');
-        loadUserFavorites();
+        // PREVENCIÓN ESTRICTA DE DESTRUCCIÓN DE SESIÓN:
+        // No destruir credenciales locales ni reiniciar state.currentUser cuando cookies
+        // temporales expiren o tras suspensión de pestañas en iOS/iPadOS/Android/PC/Mac.
+        // Solo un clic manual en "Cerrar Sesión" puede limpiar localStorage.
+        console.info('Sesión persistente en localStorage mantenida activa sin interrupciones.');
       }
     }
   } catch (err) {
@@ -5768,13 +5905,7 @@ async function handleAdminLoginSubmit(e) {
     const validToken = data.auth_token || data.token;
     state.token = validToken;
     state.currentUser = data.user;
-    localStorage.setItem('sportlive_auth_token', validToken);
-    localStorage.setItem('sportlive_user', JSON.stringify(data.user));
-    localStorage.setItem('talentolive_auth_token', validToken);
-    localStorage.setItem('livesports_auth_token', validToken);
-    localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-    localStorage.setItem('sportslive_auth_token', validToken);
-    localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
+    persistUserSession(data.user, validToken, data.user.favorite_clubs);
 
     loadUserFavorites();
     await syncUserFavorites();
@@ -5831,13 +5962,7 @@ async function doLogin(identity, password) {
     const validToken = data.auth_token || data.token;
     state.token = validToken;
     state.currentUser = data.user;
-    localStorage.setItem('sportlive_auth_token', validToken);
-    localStorage.setItem('sportlive_user', JSON.stringify(data.user));
-    localStorage.setItem('talentolive_auth_token', validToken);
-    localStorage.setItem('livesports_auth_token', validToken);
-    localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-    localStorage.setItem('sportslive_auth_token', validToken);
-    localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
+    persistUserSession(data.user, validToken, data.user.favorite_clubs);
 
     // Cargar favoritos aislados de esta cuenta
     loadUserFavorites();
@@ -5921,13 +6046,7 @@ async function handleRegisterSubmit(e) {
     const validToken = data.auth_token || data.token;
     state.token = validToken;
     state.currentUser = data.user;
-    localStorage.setItem('sportlive_auth_token', validToken);
-    localStorage.setItem('sportlive_user', JSON.stringify(data.user));
-    localStorage.setItem('talentolive_auth_token', validToken);
-    localStorage.setItem('livesports_auth_token', validToken);
-    localStorage.setItem('livesports_current_user', JSON.stringify(data.user));
-    localStorage.setItem('sportslive_auth_token', validToken);
-    localStorage.setItem('sportslive_current_user', JSON.stringify(data.user));
+    persistUserSession(data.user, validToken, data.user.favorite_clubs);
 
     loadUserFavorites();
     renderUserHeader();
@@ -6178,20 +6297,10 @@ window.handleResetPasswordSubmit = handleResetPasswordSubmit;
 async function logout() {
   const currentTok = state.token;
 
-  // 1. Limpiar credenciales y sesión inmediatamente de forma reactiva y síncrona
+  // 1. Limpiar credenciales y sesión en memoria y localStorage ÚNICAMENTE por acción manual del usuario
   state.token = '';
   state.currentUser = null;
-  localStorage.removeItem('sportlive_auth_token');
-  localStorage.removeItem('sportlive_user');
-  localStorage.removeItem('talentolive_auth_token');
-  localStorage.removeItem('talentolive_token');
-  localStorage.removeItem('grada_auth_token');
-  localStorage.removeItem('livesports_auth_token');
-  localStorage.removeItem('livesports_token');
-  localStorage.removeItem('livesports_current_user');
-  localStorage.removeItem('sportslive_auth_token');
-  localStorage.removeItem('sportslive_token');
-  localStorage.removeItem('sportslive_current_user');
+  clearAllUserSessionLocalStorage();
 
   // 2. Limpiar rigurosamente el estado reactivo en memoria de los favoritos del usuario saliente
   state.favorites = [];
